@@ -13,11 +13,12 @@ using namespace std;
 
 
 // ==============================
-// Method Signatures and Globals
+// Method Signatures
 // ==============================
 // Thread Methods
 void *sifter(void *);
 void *decoder(void *);
+typedef void* (*decoder_function)(void*); // Generic for tread functions
 void* fence(void*);
 void* hill(void*);
 void* valley(void*);
@@ -29,10 +30,26 @@ ulong findPartLength(ulong desired_index, ulong other_index_1, ulong other_index
 ulong maximum(ulong a, ulong b, ulong c);
 ulong median(ulong a, ulong b, ulong c);
 ulong minimum(ulong a, ulong b, ulong c);
+void removeAllWhiteSpace(string &input_str);
 
+// ==============================
 // Globals
+// ==============================
 bool is_logging = true; // True to turn on console logging for debugging purposes
 string cipher_string, part_one, part_two, part_three;
+string part_one_plaintext, part_two_plaintext, part_three_plaintext;
+
+// ==============================
+// Regex Globals
+// ==============================
+// (Defined once so they aren't reallocated in memory on each function call)
+regex numeric_start_regex("(^(\\d|" // Find the first X numeric digits from a string if they exist
+                            "\\s)*)"); // Include whitespace
+
+regex asterisk_regex("(?=.*?(^|[^\\*])\\*($|[^\\*]))" // Look ahead for '*' not followed/preceded by '*'
+                     "(?=.*?(^|[^\\*])\\*\\*($|[^\\*]))" // Look ahead for '**' not followed/preceded by '**'
+                     "(?=.*?(^|[^\\*])\\*\\*\\*($|[^\\*]))"  // Look ahead for '***' not followed/preceded by '***'
+                     ".*"); // All look-ahead's also account for start (^) or end ($) of string
 
 // ==============================
 // Main Method
@@ -40,7 +57,7 @@ string cipher_string, part_one, part_two, part_three;
 /* Entry point. Spawns sifter thread */
 int main() {
     pthread_t sifter_thread;
-    void *sifter_retval;
+    ulong sifter_retval;
 
     // Booleans (represented as ints) returned from pthread methods
     int sifter_created;
@@ -60,25 +77,27 @@ int main() {
     }
 
     // Join sifter thread with parent thread. Waits for results of sifter thread before continuing sequential execution
-    sifter_joined = pthread_join(sifter_thread, &sifter_retval);
+    sifter_joined = pthread_join(sifter_thread, (void **)&sifter_retval);
 
+    // ------------------------------
+    // Handle Results Passed Through From Sifter Thread
+    // ------------------------------
     // If sifter join is successful
     if (sifter_joined == 0) {
         if (is_logging) {
             printf("Sifter joined successfully.\n");
         }
-
         // Handle sifter thread return (0 = exit successfully)
-        if ((long)sifter_retval == 0) {
+        if (sifter_retval == 0) {
             printf("Program quiting...");
             exit(0); // Exit with success code 0
         // 1 = uncaught error
-        } else if ((long)sifter_retval == 1) {
+        } else if (sifter_retval == 1) {
             printf("Something went wrong during program execution. "
                    "Please contact an admin with details of what you were doing at the time of crash.");
             exit(1); // Exit with error code 1
         // 2 = user exceed max input attempts
-        } else if ((long)sifter_retval == 2) {
+        } else if (sifter_retval == 2) {
             exit(1); // Exit with error code 1
         }
 
@@ -118,8 +137,8 @@ void* sifter(void *) {
         int max_attempts = 13;
 
         // TEMP
-        uint total_tests = 16;
-        string* test_inputs = new string[total_tests];
+        uint total_tests = 18;
+        auto test_inputs = new string[total_tests];
         // Hashemi Tests
         test_inputs[0] =  "***3 rrlmwbkaspdh 17 17 5 21 18 21 2 2 19 12 *123555eu5eotsya**3 GoodMorningJohn 3 2 1 20 15 4 10 22 3";
         test_inputs[1] =  "**2 Global Warming 12 4 5 23 18 13 4 *** 2 RFRWYQ 5 8 17 3 4 9*31427781OAOSRSDKYPWIKSRO";
@@ -138,13 +157,15 @@ void* sifter(void *) {
         test_inputs[13] = "**ABC 5 6 7 8 10 1 4 8 11*K SAAPXGOW**MKPW 10 2 12 1*J RZZOWFNV"; // Invalid
         test_inputs[14] = "***ABC 5 6 7 8 10 1 4 8 11* **J RZZOWFNV"; // Invalid?
         test_inputs[15] = "***ABC 5 6 7 8 10 1 4 8 11* t3w **"; // Invalid?
+        test_inputs[16] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**DNE***DNE";
+        test_inputs[17] = "*93456312ttnaAptMTSUOaodwcoIXknLypETZ**DNE***DNE";
 
 
 
 
         // Prompt user to enter input cipher string until a valid string is entered or attempts run out
         while (cipher_string.empty() && attempts < max_attempts) {
-            printf("Enter your cipher string of three parts, or enter 'quit' to exit program:\n");
+            printf("\n\nEnter your cipher string of three parts, or enter 'quit' to exit program:\n");
             attempts++;
             try {
                 if (test_index < total_tests) {
@@ -153,14 +174,14 @@ void* sifter(void *) {
                     getline(cin, cipher_string);
                 }
                 if (is_logging) {
-                    printf("Entered String: \n%s\n", cipher_string.c_str());
+                    printf("Entered String: %s\n", cipher_string.c_str());
                 }
             } catch (...) {
-                pthread_exit((void *) 1); // Exit with unsuccessful 1 code on reading input error
+                pthread_exit((void *) 1); // Exit thread with unsuccessful 1 code on reading input error
             }
 
             if (cipher_string == "quit" || cipher_string == "exit") {
-                pthread_exit((void *) 0);  // Exit thread and return successful 0
+                pthread_exit((void *) nullptr); // Exit thread and return successful 0
             }
 
             is_valid_cipher = isValidCipher();
@@ -169,12 +190,12 @@ void* sifter(void *) {
             if (!is_valid_cipher) {
                 // If user ran out of input attempts, notify user and exit program
                 if (attempts >= max_attempts) {
-                    printf("\nYou've run out of the maximum allowed attempts: %d"
-                           "\nPlease restart the program if you wish to try again.",
+                    printf("You've run out of the maximum allowed attempts: %d"
+                           "Please restart the program if you wish to try again.",
                            max_attempts);
-                    pthread_exit((void *) 2); // Exit with unsuccessful 2 code
+                    pthread_exit((void *) 2); // Exit thread with unsuccessful 2 code
                 } else {
-                    printf("\nInvalid input. "
+                    printf("Invalid input. "
                            "Please enter a string made up of the three parts that make up the encoded message.\n");
                     cipher_string = ""; // Empty user input in preparation for next iteration
                 }
@@ -182,7 +203,7 @@ void* sifter(void *) {
         }
 
         if (is_logging) {
-            printf("\nUser entered a valid cipher of: \"%s\" after %d attempts\n", cipher_string.c_str(), attempts);
+            printf("User entered a valid cipher of: \"%s\" after %d attempts\n", cipher_string.c_str(), attempts);
         }
 
         // ------------------------------
@@ -190,7 +211,7 @@ void* sifter(void *) {
         // ------------------------------
         pthread_t decoder_thread;
 
-        char *decoder_retval;
+        ulong decoder_retval;
 
         // Booleans (represented as ints) returned from pthread methods
         int decoder_created;
@@ -201,56 +222,245 @@ void* sifter(void *) {
 
         if (decoder_created == 0) {
             if (is_logging) {
-                printf("\nDecoder thread spawned successfully.\n");
+                printf("Decoder thread spawned successfully.\n");
             }
         } else {
             printf("Error spawning decoder thread from shifter thread.\n");
-            std::exit(1); // Exit with unsuccessful error code
+            pthread_exit((void *) 1); // Exit thread with unsuccessful 1 code
         }
 
         // Join decoder thread with sifter thread. Waits for results of decoder thread
-        decoder_joined = pthread_join(decoder_thread, (void **) &decoder_retval);
+        decoder_joined = pthread_join(decoder_thread, (void **)&decoder_retval);
 
+        // ------------------------------
+        // Handle Results Passed Through From Decoder Thread
+        // ------------------------------
         if (decoder_joined == 0) {
+            // On successful join, log if logging is turned on
             if (is_logging) {
                 printf("Decoder thread joined successfully.\n");
-                printf("%s\n", decoder_retval); // Print return value from decoder thread
             }
+            // If decoder is successful, or the user input is invalid, continue with next iteration
+            else if (decoder_retval == 0 || decoder_retval == 2) {
+                continue;
+            }
+            // If error occurred in join or in a decoder thread, exit thread and stop execution
+            else if (decoder_retval == 1) {
+                printf("Error occurred within decoder thread, or with joining decoder with sifter thread.\n");
+                pthread_exit((void *) 1); // Exit thread with unsuccessful 1 code
+            }
+        // If error joining decoder thread, exit with error
         } else {
-            printf("Error joining decoder thread with sifter thread.\n");
-            std::exit(1);  // Exit with unsuccessful error code
+            printf("Error joining decoder thread with main module thread.\n");
+            pthread_exit((void *) 1); // Exit thread with unsuccessful 1 code
         }
     }
 }
 
 /* Passed Part1, Part2, and Part3 into 3 separate threads named: fence, hill, and valley respectively.
  * The encoding schemes that each thread follows are detailed in assignment_description.pdf, a copy of
- * which can be found in the parent directory of the repository that this program belongs to. */
+ * which can be found in the parent directory of the repository that this program belongs to.
+ *
+ * Thread returns a uint code with the following meanings:
+ *  0 = successful exit (all 3 thread decoded)
+ *  1 = Generic error
+ *  2 = Invalid ciphertext found by one of the decoder threads
+ * */
 void* decoder(void*) {
     /* Note to Dr. Hashemi: It made more sense to already split the thread into three parts during validation,
      * so rather than splitting again, this method will use the global variables containing each part to deliver them
      * to each thread */
+    // Decoder threads are the fence, hill, and valley threads
+    pthread_t decoder_threads[3];
+    decoder_function threads_funcs[3] = {&fence, &hill, &valley};
+    ulong decoder_retvals[3];
+    int decoder_thread_created[3];
+    int decoder_thread_joined[3];
 
+    // For each decoder method, create a thread and wait (join) for it to be completed
+    for (uint i = 0; i < 3; i++) {
+        decoder_thread_created[i] = pthread_create(&decoder_threads[i], nullptr, threads_funcs[i], nullptr);
+        if (decoder_thread_created[i] == 0) {
+            decoder_thread_joined[i] = pthread_join(decoder_threads[i], (void **)&decoder_retvals[i]);
 
-    pthread_exit((void *)"Decoder Completed.");
+            // Ciphertext sent to a part was found to be invalid
+            if (decoder_retvals[i] == 2) {
+                if (i == 0) {
+                    printf("Part1 of your string was found to be invalid by the Fence thread.\nDecoding stopped.\n");
+                } else if (i == 1) {
+                    printf("Part2 of your string was found to be invalid by the Hill thread.\nDecoding stopped.\n");
+                } else if (i == 2) {
+                    printf("Part3 of your string was found to be invalid by the Valley thread.\nDecoding stopped.\n");
+                }
+                pthread_exit((void *) 2); // Exit thread with unsuccessful 2 code: Invalid ciphertext
+            }
+
+            // If something went wrong with join, or with one of the decoder threads, exit thread
+            if (decoder_thread_joined[i] != 0 || decoder_retvals[i] != 0) {
+                pthread_exit((void *) 1); // Exit thread with unsuccessful 1 code
+            }
+        }
+    }
+
+    pthread_exit((void *) nullptr); // Exit thread with successful code
 }
 
 /* Takes part_one (stored as global) of the ciphertext input and decodes it using the Fence Thread scheme defined in
- * ./assignment_description.pdf */
+ * ./assignment_description.pdf
+ *
+ * Thread returns a uint code with the following meanings:
+ *  0 = successful exit (thread decoded)
+ *  1 = Generic error
+ *  2 = Invalid ciphertext
+ * */
 void* fence(void*) {
+    if (is_logging) {
+        printf("Fence(): Part1: %s\n", part_one.c_str());
+    }
 
+    string section_one; // Numeric Part
+    string section_two; // Remaining characters after numeric part
+
+    // Extract numeric part of part_one (all leading digits)
+    cmatch numeric_part_match;
+    regex_search(part_one.c_str(), numeric_part_match, numeric_start_regex);
+    // Extract match
+    section_one = numeric_part_match.str();
+    // Remove whitespaces from match
+    removeAllWhiteSpace(section_one);
+    // Extract contents after match
+    section_two = numeric_part_match.suffix();
+    // Remove whitespaces from suffix
+    removeAllWhiteSpace(section_two);
+
+    // If there is no numeric part, exit thread
+    if (section_one.length() <= 0) {
+        printf("Fence(): Section1 is empty: %s\n", section_one.c_str());
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid ciphertext
+    } else {
+        if (is_logging) {
+            printf("Fence(): Part1: Section1: %s\n", section_one.c_str());
+        }
+    }
+
+    // If there is no character part, exit thread
+    if (section_two.length() <= 0) {
+        printf("Fence(): Section2 is empty: %s\n", section_one.c_str());
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid ciphertext
+    } else {
+        if (is_logging) {
+            printf("Fence(): Part1: Section2: %s\n", section_two.c_str());
+        }
+    }
+
+    // --------------------------------
+    // Find Q and P
+    // --------------------------------
+    map<char, int> digitPositions; // Key value pair for each digit char mapped to its position in section_one
+    char key;
+    // Init digitPositions with -1 for each digit position
+    for (char& digit : section_one) {
+        digitPositions[digit] = -1;
+    }
+    // Find repeated digit
+    int q = -1, p = -1;
+    for (int i = 0; i < section_one.size(); ++i) {
+        key = (char)section_one[i];
+        // If digit has already been found
+        if (digitPositions[key] != -1) {
+            p = digitPositions[key]; // First occurrence of repeated digit
+            q = i; // Second occurrence of repeated digit
+            break;
+        } else {
+            digitPositions[key] = i; // Set position of digit
+        }
+    }
+    // If no repeating digits, exit thread with input error code
+    if (p == -1 || q == -1) {
+        printf("Fence(): Section1 has no repeated digits: %s\n", section_one.c_str());
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid ciphertext
+    }
+
+    // --------------------------------
+    // Find and Validate k
+    // --------------------------------
+    // k will be all characters before consecutive duplicates or all characters before the 2nd nonconsecutive duplicate
+    string k;
+    if (q == p + 1) {
+        k = section_one.substr(0, (ulong)p);
+    } else {
+        k = section_one.substr(0, (ulong)q);
+    }
+    long n = k.length();
+    // Exit thread with input error if k is empty
+    if (n <= 0) {
+        printf("Fence(): k is empty.\n");
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid ciphertext
+    }
+    // In order for k to be valid, it must consume all digits from 1 to N where N = length(k);
+    for (int i = 1; i < n + 1; i++) {
+        key = '0' + (char)i;
+        if (k.find(key) == string::npos) {
+            printf("Fence(): k doesn't have 1 to Length(k) digits: %s\n", k.c_str());
+            pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid ciphertext
+        }
+    }
+
+    // --------------------------------
+    // Find j and partition section_two
+    // --------------------------------
+    if (section_two.length() % n != 0) {
+        printf("Fence(): length(section_two) is not divisible by length(k) (N): %s\n", k.c_str());
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid ciphertext
+    }
+    long j = section_two.length() / n;
+    // Partition section_two into n columns of j characters in each column (j rows)
+    char section_two_matrix[j][n];
+    int section_two_index = 0;
+    for (int col = 0; col < n; col++) {
+        for (int row = 0; row < j; row++) {
+            section_two_matrix[row][col] = (char)section_two[section_two_index++];
+        }
+    }
+
+    // --------------------------------
+    // Rearrange Matrix and find plaintext
+    // --------------------------------
+    int new_col;
+    // The new matrix will be the columns of the old section_two matrix arranged by the digits in k
+    char rearranged_matrix[j][n];
+    for (int old_col = 0; old_col < n; old_col++) {
+        // Adjust for c indexing starting at 0 by - 1
+        new_col = k[old_col] - '0' - 1;
+        for (int row = 0; row < j; row++) {
+            rearranged_matrix[row][old_col] = section_two_matrix[row][new_col];
+        }
+    }
+
+    part_one_plaintext = "";
+    for (int row = 0; row < j; row++) {
+        for (int col = 0; col < n; col++) {
+            part_one_plaintext += rearranged_matrix[row][col];
+        }
+    }
+
+    if (is_logging) {
+        printf("Fence(): Decoded Part 1: %s", part_one_plaintext.c_str());
+    }
+
+    pthread_exit((void *) nullptr);
 }
 
 /* Takes part_two (stored as global) of the ciphertext input and decodes it using the Hill Thread scheme defined in
  * ./assignment_description.pdf */
 void* hill(void*) {
-
+    pthread_exit((void *) nullptr);
 }
 
 /* Takes part_two (stored as global) of the ciphertext input and decodes it using the Valley Thread scheme defined in
  * ./assignment_description.pdf */
 void* valley(void*) {
-
+    pthread_exit((void *) nullptr);
 }
 
 
@@ -266,10 +476,7 @@ void* valley(void*) {
  * */
 bool isValidCipher() {
     // Use regex to check that the cipher string contains at least 1 of each "*", "**", and "***".
-    regex asterisk_regex("(?=.*?(^|[^\\*])\\*($|[^\\*]))" // Look ahead for '*' not followed/preceded by '*'
-                         "(?=.*?(^|[^\\*])\\*\\*($|[^\\*]))" // Look ahead for '**' not followed/preceded by '**'
-                         "(?=.*?(^|[^\\*])\\*\\*\\*($|[^\\*]))"  // Look ahead for '***' not followed/preceded by '***'
-                         ".*"); // All look-ahead's also account for start (^) or end ($) of string
+
 
     // First Validation: If string does contain one of each section
     if (regex_match(cipher_string, asterisk_regex)) {
@@ -297,12 +504,6 @@ bool isValidCipher() {
 
     // Verify that splitting the string into three parts gives 3 non-null parts
     splitIntoParts();
-
-    if (is_logging) {
-        printf("Part1: %s\n", part_one.c_str());
-        printf("Part2: %s\n", part_two.c_str());
-        printf("Part3: %s\n", part_three.c_str());
-    }
 
     // Third Validation: Verify that each part is non-null
     if (part_one.length() <= 0 || part_two.length() <= 0 || part_three.length() <= 0) {
@@ -404,4 +605,9 @@ ulong findPartLength(ulong desired_index, ulong other_index_1, ulong other_index
     }
 
     return part_length;
+}
+
+/* Removes all whitespace from a pass-by-reference string */
+void removeAllWhiteSpace(string &input_str) {
+    input_str = regex_replace(input_str, regex("\\s+"), "");
 }

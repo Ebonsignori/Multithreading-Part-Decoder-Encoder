@@ -33,3 +33,10 @@ The specific decoding scheme for each of these three methods can be found in the
 
 ***ABC 5 6 7 8 10 1 4 8 11*K SAAPXGOW**MKPW 10 2 12 1*J RZZOWFNV
 ```
+
+## Custom Sample Inputs
+For testing `Part1`, the `Fence` Decoder Thread
+```
+*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**DNE***DNE
+*93456312ttnaAptMTSUOaodwcoIXknLypETZ**DNE***DNE
+```
