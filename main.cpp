@@ -22,6 +22,10 @@ typedef void* (*decoder_function)(void*); // Generic for tread functions
 void* fence(void*);
 void* hill(void*);
 void* valley(void*);
+// Share hill and valley logic methods
+bool hillValleyGetTokenOne(string &part, string &calling_thread, int &current_index, int &section_one_int);
+bool hillValleyGetTokenTwo(string &part, string &calling_thread, int &current_index, int section_one_int, string &section_two);
+bool hillValleyGenerateMatrixK(string &section_three, string &calling_thread, int section_one_int, long** K);
 // Validation Methods
 bool isValidInputString();
 // Matrix Manipulation Methods
@@ -40,6 +44,8 @@ void removeTrailingWhitespace(string &input_str);
 bool isOnlyWhitespace(string input_str);
 long convertToAlphabetPosition(char character);
 char convertFromAlphabetPosition(long position_number);
+// Debug Methods
+void print2dMatrix(long size, long **matrix);
 
 // ==============================
 // Globals
@@ -173,10 +179,6 @@ void* sifter(void *) {
         test_inputs[18] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**     ***DNE"; // All whitespace part 2 - Invalid
         test_inputs[19] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15***DNE";
         test_inputs[20] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3  p ay more money  17 17 5 21   18 21 2 2   19 0 15  ***DNE";
-
-
-
-
 
         // Prompt user to enter input string until a valid string is entered or attempts run out
         while (user_input_string.empty() && attempts < max_attempts) {
@@ -473,137 +475,56 @@ void* fence(void*) {
 /* Takes part_two (stored as global) of the user input and decodes it using the Hill Thread scheme defined in
  * ./assignment_description.pdf */
 void* hill(void*) {
+    string current_thread = "Hill";
     if (is_logging) {
         printf("Hill(): Part2: %s\n", part_two.c_str());
     }
 
     // --------------------------------
-    // Extract Section 1 From part_two
+    // Extract Section 1 From part_two Using the Logic Shared With Valley Thread
     // --------------------------------
-    string section_one = "0";
-    int current_index = 0;
-    // Find the first token (after whitespace) that is either a 2 or a 3
-    for (int i = 0; i < part_two.length(); i++) {
-        if (!isspace(part_two[i])) {
-            // If first token isn't a 2 or 3, exit thread
-            if (part_two[i] == '2' || part_two[i] == '3') {
-                section_one = part_two[i];
-                current_index = i + 1;
-                break;
-            } else {
-                printf("Hill(): section_one is not a 2 or a 3: %c\n", part_two[i]);
-                pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
-            }
-        }
-    }
-    // If input was all whitespace, exit thread with input error code
-    if (section_one == "0") {
-        printf("Hill(): part_two is all whitespace. %s\n", part_two.c_str());
+    int section_one_int, current_index; // Will be set in hillValleyGetTokenOne()
+    // If the shared logic found that there was an error in the user input, exit the thread
+    if (!hillValleyGetTokenOne(part_two, current_thread, current_index, section_one_int)) {
         pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
     }
-    int section_one_int = section_one[0] - '0';
 
     // --------------------------------
     // Extract Section 2 From part_two
     // --------------------------------
-    string section_two;
-    // Check that there is a character after the first token, and it isn't another digit
-    if (current_index < part_two.length() && !isdigit(part_two[current_index])) {
-        // Continue iteration from where token 1 ended to find the second token
-        for (current_index; current_index < part_two.length(); current_index++) {
-            // Continue until a non-alpha or non-space character is found
-            if (isalpha(part_two[current_index]) || isspace(part_two[current_index])) {
-                // Extract token 2
-                section_two += part_two[current_index];
-            } else {
-                break;
-            }
-        }
-    } else {
-        printf("Hill(): part_two doesn't have a second token or token 1 is more than 1 char. %s\n", part_two.c_str());
-        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
-    }
-
-    // Remove whitespace from section 2
-    removeAllWhiteSpace(section_two);
-
-    // If no token 2 (alphabetic chars) were found, exit thread with invalid user input code
-    if (section_two.empty()) {
-        printf("Hill(): part_two doesn't have the alphabetic chars for section_two. %s\n", part_two.c_str());
-        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
-    }
-    // If the length of token 2 is not a multiple of token 1, exit thread with invalid user input code
-    if (section_two.length() % section_one_int != 0) {
-        printf("Hill(): length(section_two): %lu is not a multiple of token 1: %d.\n",
-               section_two.length(), section_one_int);
-        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
+    string section_two; // Will be set in hillValleyGetTokenTwo()
+    if (!hillValleyGetTokenTwo(part_two, current_thread, current_index, section_one_int, section_two)) {
+        pthread_exit((void *) 2);
     }
 
     // --------------------------------
-    // Extract Section 3 From part_two into matrix K
+    // Extract Section 3 From part_two
     // --------------------------------
     string section_three = part_two.substr((ulong)current_index, part_two.length() - (ulong)current_index);
 
-    // Trim left and right white space TODO: Is this unnecessary?
-    removeLeadingWhitespace(section_three);
-    removeTrailingWhitespace(section_three);
-    regex e("\\s+");
-    regex_token_iterator<string::iterator> token_iterator(section_three.begin(), section_three.end(), e , -1);
-    regex_token_iterator<string::iterator> end;
-    long K[section_one_int][section_one_int]; // K is an nxn square matrix, where n is token1 of Part2
-    int row = 0, col = 0, number_of_tokens = 0;
-    while (token_iterator != end) {
-        // Get current token string from iterator
-        string current_token = (string)*token_iterator++;
-
-        // Check that the token is a digit (only numerical characters) and not alphabetic
-        for (char& character : current_token) {
-            if (!isdigit(character)) {
-                printf("Hill(): invalid section 3: All tokens must be numeric characters: %s.\n",
-                       section_three.c_str());
-                pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
-            }
-        }
-
-        // Keep track of current row and column index of the K matrix
-        if (col > section_one_int - 1) {
-            col = 0;
-            row++;
-        }
-        // Convert each digit token in section3 into a number and place it into the K matrix
-        try {
-            K[row][col++] = std::stoi(current_token);
-        } catch (...) {
-            printf("Hill(): invalid section 3: Non-digit characters in third section: %s.\n",
-                   section_three.c_str());
-            pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
-        }
-        // Keep track of the number of tokens added to section 3
-        number_of_tokens++;
+    // --------------------------------
+    // Generate Matrix K From Section 3
+    // --------------------------------
+    // Initialize the K Matrix of size nxn (square), where n is token 1 of Part 2
+    auto ** K = (long**)malloc(sizeof(long*)*section_one_int);
+    for (int i = 0 ; i < section_one_int; i++) {
+        *(K + i) = (long *) malloc(sizeof(long) * section_one_int);
     }
 
-    // Check that the number of tokens is >= 4 or >= 9 for when token1 is 2 and 3, respectively
-    if (section_one_int == 2 && number_of_tokens < 4) {
-        printf("Hill(): invalid section 3: Token 1 is 2, but the number of characters is less than 4: %s.\n",
-               section_three.c_str());
-        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
-    }
-    if (section_one_int == 3 && number_of_tokens < 9) {
-        printf("Hill(): invalid section 3: Token 1 is 3, but the number of characters is less than 9: %s.\n",
-               section_three.c_str());
-        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
+    if (!hillValleyGenerateMatrixK(section_three, current_thread, section_one_int, K)) {
+        pthread_exit((void *) 2);
     }
 
     // --------------------------------
-    // Calculate C =(PK) mod (26) Where P = every set of 3 characters from section 2
+    // Calculate C =(PK) mod (26) Where P = every set of 2 or 3 characters from section 2 or 3
     // --------------------------------
-    long P[section_one_int]; // Matrix that holds 3 plaintext character number positions
-    long C[section_one_int]; // Resultant matrix that holds 3 encoded characters at a time
+    long P[section_one_int]; // Matrix that holds 2 or 3 plaintext character number positions
+    long C[section_one_int]; // Resultant matrix that holds 2 or 3 encoded characters at a time
     hill_thread_result = ""; // Will hold the ciphertext
     for (int i = 0; i < section_two.length(); i++) {
-        P[i % 3] = convertToAlphabetPosition(section_two[i]);
+        P[i % section_one_int] = convertToAlphabetPosition(section_two[i]);
         // If three characters of section two have been extracted, calculate (PK) mod 26
-        if ((i + 1) % 3 == 0) {
+        if ((i + 1) % section_one_int == 0) {
             // C = P * K
             oneByNTimesNbyNMatrix(section_one_int, P, K, C);
             // C = (P* K) mod (26)
@@ -628,6 +549,135 @@ void* valley(void*) {
     pthread_exit((void *) nullptr);
 }
 
+// ==============================
+// Share Hill and Valley Logic Methods
+// ==============================
+bool hillValleyGetTokenOne(string &part, string &calling_thread, int &current_index, int &section_one_int) {
+    // --------------------------------
+    // Extract Section 1 From part
+    // --------------------------------
+    string section_one = "0";
+    // Find the first token (after whitespace) that is either a 2 or a 3
+    for (int i = 0; i < part.length(); i++) {
+        if (!isspace(part[i])) {
+            // If first token isn't a 2 or 3, exit thread
+            if (part[i] == '2' || part[i] == '3') {
+                section_one = part[i];
+                current_index = i + 1;
+                break;
+            } else {
+                printf("%s(): The first token is not a 2 or a 3: %c\n", calling_thread.c_str(), part[i]);
+                return false; // Return false to exit thread with invalid user input code
+            }
+        }
+    }
+
+    // Failsafe: Should never be reached with new validation checks
+    // If input was all whitespace, exit thread with input error code
+    if (section_one == "0") {
+        printf("%s(): Current part is all whitespace. %s\n", calling_thread.c_str(), part.c_str());
+        return false; // Return false to exit thread with invalid user input code
+    }
+
+    // Set character of digit as integer
+    section_one_int = section_one[0] - '0';
+
+    return true; // If section 1 is valid, returns true with values for current_index and section_one_int set correctly
+}
+
+bool hillValleyGetTokenTwo(string &part, string &calling_thread, int &current_index, int section_one_int, string &section_two) {
+    // Check that there is a character after the first token, and it isn't another digit
+    if (current_index < part_two.length() && !isdigit(part_two[current_index])) {
+        // Continue iteration from where token 1 ended to find the second token
+        for (current_index; current_index < part_two.length(); current_index++) {
+            // Continue until a non-alpha or non-space character is found
+            if (isalpha(part_two[current_index]) || isspace(part_two[current_index])) {
+                // Extract token 2
+                section_two += part_two[current_index];
+            } else {
+                break;
+            }
+        }
+    } else {
+        printf("%s(): current part doesn't have a second token or token 1 is more than 1 char. %s\n", calling_thread.c_str(), part_two.c_str());
+        return false; // Return false to exit thread with invalid user input code
+    }
+
+    // Remove whitespace from section 2
+    removeAllWhiteSpace(section_two);
+
+    // If no token 2 (alphabetic chars) were found, exit thread with invalid user input code
+    if (section_two.empty()) {
+        printf("%s(): current part doesn't have only alphabetic chars for section 2. %s\n",
+               calling_thread.c_str(), part_two.c_str());
+        return false; // Return false to exit thread with invalid user input code
+    }
+    // If the length of token 2 is not a multiple of token 1, exit thread with invalid user input code
+    if (section_two.length() % section_one_int != 0) {
+        printf("%s(): length(section 2): %lu is not a multiple of token 1: %d.\n",
+               calling_thread.c_str(), section_two.length(), section_one_int);
+        return false; // Return false to exit thread with invalid user input code
+    }
+    // If section 2 is valid, returns true with value of token 2 stored in section_two, and current_index is updated
+    return true;
+}
+
+bool hillValleyGenerateMatrixK(string &section_three, string &calling_thread, int section_one_int, long** K) {
+    regex e("\\s+");
+    regex_token_iterator<string::iterator> token_iterator(section_three.begin(), section_three.end(), e , -1);
+    regex_token_iterator<string::iterator> end;
+    int row = 0, col = 0, number_of_tokens = 0;
+
+    while (token_iterator != end) {
+        // Get current token string from iterator
+        string current_token = (string)*token_iterator++;
+
+        // Check that the token is a digit (only numerical characters) and not alphabetic
+        for (char& character : current_token) {
+            if (!isdigit(character)) {
+                printf("%s(): invalid section 3: All tokens must be numeric characters: %s.\n",
+                       calling_thread.c_str(), section_three.c_str());
+                return false; // Return false to exit thread with invalid user input code
+            }
+        }
+
+        // Keep track of current row and column index of the K matrix
+        if (col > section_one_int - 1) {
+            col = 0;
+            row++;
+        }
+
+        // If matrix is filled even if there are more tokens, exit loop
+        if (row >= section_one_int) {
+            break;
+        }
+
+        // Convert each digit token in section3 into a number and place it into the K matrix
+        try {
+            K[row][col++] = stoi(current_token);
+        } catch (...) {
+            printf("%s(): invalid section 3: Non-digit characters in third section: %s.\n",
+                   calling_thread.c_str(), section_three.c_str());
+            return false; // Return false to exit thread with invalid user input code
+        }
+        // Keep track of the number of tokens added to section 3
+        number_of_tokens++;
+    }
+
+    // Check that the number of tokens is >= 4 or >= 9 for when token1 is 2 and 3, respectively
+    if (section_one_int == 2 && number_of_tokens < 4) {
+        printf("%s(): invalid section 3: Token 1 is 2, but the number of characters is less than 4: %s.\n",
+               calling_thread.c_str(), section_three.c_str());
+        return false; // Return false to exit thread with invalid user input code
+    }
+    if (section_one_int == 3 && number_of_tokens < 9) {
+        printf("%s(): invalid section 3: Token 1 is 3, but the number of characters is less than 9: %s.\n",
+               calling_thread.c_str(), section_three.c_str());
+        return false; // Return false to exit thread with invalid user input code
+    }
+
+    return true;
+}
 
 // ==============================
 // Validation Methods
@@ -854,5 +904,17 @@ char convertFromAlphabetPosition(long position_number) {
         return char(97 + position_number);
     }
     return (char)(65 + position_number);
+}
+
+// ==================
+// Debug Methods
+// ==================
+void print2dMatrix(long size, long **matrix) {
+    for (int i = 0; i < size; i++) {
+        for (int j = 0; j < size; j++) {
+            printf("%ld ", matrix[i][j]);
+        }
+        printf("\n");
+    }
 }
 
