@@ -6,6 +6,7 @@ Each parts is each fed into the `Fence`, `Hill`, and `Valley` threads respective
 The specific decoding scheme for each of these three methods can be found in the [Assignment Description](./assignment_description.pdf).
 
 ## Sample Inputs
+### Hashemi Assigned Inputs
 ```
 ***3 rrlmwbkaspdh 17 17 5 21 18 21 2 2 19 12 *123555eu5eotsya**3 GoodMorningJohn 3 2 1 20 15 4 10 22 3
 
@@ -48,7 +49,13 @@ For testing `Part1`, the `Fence` Decoder Thread
 ```
 For testing `Part2`, the `Hill` Decoder Thread
 ```
-*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**     ***DNE
 *43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15***DNE
 *43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3  p ay more money  17 17 5 21   18 21 2 2   19 0 15  ***DNE
+```
+For testing `Part3`, the `Valley` Encoder Thread
+```
+*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15***3 RRLMWBKASPDH 17 17 5 21 18 21 2 2 19 3 8
+*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15***3 R RLMWBK ASP  DH  17 17 5 21 18   21 2 2 19 3  8
+***3 WKAZAPBPPPCMADD  3 2 1 20 15 4 10 22 3**3 GoodMorningJohn 3 2 1 20 15 4 10 22 3*43125678812ttnaAptMTSUOaodwcoIXknLypETZ
+**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15*** 2 RFRWYQ 5 8 17 3 4 9*31427781OAOSRSDKYPWIKSRO
 ```

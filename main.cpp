@@ -29,8 +29,11 @@ bool hillValleyGenerateMatrixK(string &section_three, string &calling_thread, in
 // Validation Methods
 bool isValidInputString();
 // Matrix Manipulation Methods
-void oneByNTimesNbyNMatrix(long size, long one_by_n[], void *n_by_n_in, long result_matrix[]);
+void oneByNTimesNbyNMatrix(long size, long one_by_n[], long **n_by_n, long result_matrix[]);
 void scalarModOnebyNMatrix(long size, long matrix[], long mod_factor);
+long threeByThreeDeterminant(long **matrix);
+long twoByTwoDeterminant(long **matrix);
+void findSubMatrix(long size, long row_to_ignore, long col_to_ignore, long** matrix,  long** sub_matrix);
 // Input Part Handling Methods
 void splitIntoParts();
 ulong findPartLength(ulong desired_index, ulong other_index_1, ulong other_index_2);
@@ -44,13 +47,17 @@ void removeTrailingWhitespace(string &input_str);
 bool isOnlyWhitespace(string input_str);
 long convertToAlphabetPosition(char character);
 char convertFromAlphabetPosition(long position_number);
+long findModularMultiplicativeInverse(long b, long n);
+long gcd(long a, long b);
 // Debug Methods
+void print1dMatrix(long size, long *matrix);
 void print2dMatrix(long size, long **matrix);
 
 // ==============================
 // Globals
 // ==============================
-bool is_logging = true; // True to turn on console logging for debugging purposes
+const bool IS_LOGGING = true; // True to turn on console logging for debugging purposes
+const int ALPHABET_SIZE = 26;
 string user_input_string, part_one, part_two, part_three;
 string fence_thread_result, hill_thread_result, valley_thread_result;
 
@@ -83,7 +90,7 @@ int main() {
 
     // If sifter thread is created successfully
     if (sifter_created == 0) {
-        if (is_logging) {
+        if (IS_LOGGING) {
             printf("Sifter thread spawned successfully.\n");
         }
     } else if (sifter_created == 1) {
@@ -99,7 +106,7 @@ int main() {
     // ------------------------------
     // If sifter join is successful
     if (sifter_joined == 0) {
-        if (is_logging) {
+        if (IS_LOGGING) {
             printf("Sifter joined successfully.\n");
         }
         // Handle sifter thread return (0 = exit successfully)
@@ -133,7 +140,7 @@ int main() {
  * the user only three chances to enter a valid message (with three no-null parts) The thread sifter then spawns the
  * decoder thread that divides the message into three parts.
  *
- * Thread returns a uint code with the following meanings:
+ * Thread returns a uint code that is handled by the main method, with the following meanings:
  *   0 = successful exit (user enters quit command)
  *   1 = uncaught error
  *   2 = user ran out of input attempts
@@ -152,7 +159,7 @@ void* sifter(void *) {
         int max_attempts = 13;
 
         // TEMP
-        uint total_tests = 21;
+        uint total_tests = 25;
         auto test_inputs = new string[total_tests];
         // Hashemi Tests
         test_inputs[0] =  "***3 rrlmwbkaspdh 17 17 5 21 18 21 2 2 19 12 *123555eu5eotsya**3 GoodMorningJohn 3 2 1 20 15 4 10 22 3";
@@ -176,9 +183,13 @@ void* sifter(void *) {
         test_inputs[16] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**DNE***DNE"; // Valid
         test_inputs[17] = "*93456312ttnaAptMTSUOaodwcoIXknLypETZ**DNE***DNE"; // Invalid
         // Part 2 - Hill
-        test_inputs[18] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**     ***DNE"; // All whitespace part 2 - Invalid
-        test_inputs[19] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15***DNE";
-        test_inputs[20] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3  p ay more money  17 17 5 21   18 21 2 2   19 0 15  ***DNE";
+        test_inputs[18] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15***DNE";
+        test_inputs[19] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3  p ay more money  17 17 5 21   18 21 2 2   19 0 15  ***DNE";
+        // Part 3 - Valley
+        test_inputs[20] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15***3 RRLMWBKASPDH 17 17 5 21 18 21 2 2 19 3 8";
+        test_inputs[21] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15***3 R RLMWBK ASP  DH  17 17 5 21 18   21 2 2 19 3  8 ";
+        test_inputs[22] = "***3 WKAZAPBPPPCMADD  3 2 1 20 15 4 10 22 3**3 GoodMorningJohn 3 2 1 20 15 4 10 22 3*43125678812ttnaAptMTSUOaodwcoIXknLypETZ";
+        test_inputs[23] = "**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15*** 2 RFRWYQ 5 8 17 3 4 9*31427781OAOSRSDKYPWIKSRO";
 
         // Prompt user to enter input string until a valid string is entered or attempts run out
         while (user_input_string.empty() && attempts < max_attempts) {
@@ -190,7 +201,7 @@ void* sifter(void *) {
                 } else {
                     getline(cin, user_input_string);
                 }
-                if (is_logging) {
+                if (IS_LOGGING) {
                     printf("Entered String: %s\n", user_input_string.c_str());
                 }
             } catch (...) {
@@ -219,7 +230,7 @@ void* sifter(void *) {
             }
         }
 
-        if (is_logging) {
+        if (IS_LOGGING) {
             printf("User entered a valid input of: \"%s\" after %d attempts\n", user_input_string.c_str(), attempts);
         }
 
@@ -238,7 +249,7 @@ void* sifter(void *) {
         decoder_created = pthread_create(&decoder_thread, nullptr, decoder, nullptr);
 
         if (decoder_created == 0) {
-            if (is_logging) {
+            if (IS_LOGGING) {
                 printf("Decoder thread spawned successfully.\n");
             }
         } else {
@@ -254,7 +265,7 @@ void* sifter(void *) {
         // ------------------------------
         if (decoder_joined == 0) {
             // On successful join, log if logging is turned on
-            if (is_logging) {
+            if (IS_LOGGING) {
                 printf("Decoder thread joined successfully.\n");
             }
             // If decoder is successful, or the user input is invalid, continue with next iteration
@@ -278,7 +289,10 @@ void* sifter(void *) {
  * The encoding schemes that each thread follows are detailed in assignment_description.pdf, a copy of
  * which can be found in the parent directory of the repository that this program belongs to.
  *
- * Thread returns a uint code with the following meanings:
+ * All Decoder threads, including this thread pass through their return value upon exit. Values returned from the
+ * Decoder (this), Fence, Hill, and Valley threads are passed through and handled by the sifter thread. Before passing
+ * the value through, each method handles its own output message, detailing the return if necessary (on input error).
+ * Each code has the following return codes:
  *  0 = successful exit (all 3 thread decoded)
  *  1 = Generic error
  *  2 = Invalid user input string found by one of the decoder threads
@@ -334,7 +348,7 @@ void* decoder(void*) {
  *  2 = Invalid user input
  * */
 void* fence(void*) {
-    if (is_logging) {
+    if (IS_LOGGING) {
         printf("Fence(): Part1: %s\n", part_one.c_str());
     }
 
@@ -358,7 +372,7 @@ void* fence(void*) {
         printf("Fence(): Section1 is empty: %s\n", section_one.c_str());
         pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
     } else {
-        if (is_logging) {
+        if (IS_LOGGING) {
             printf("Fence(): Part1: Section1: %s\n", section_one.c_str());
         }
     }
@@ -368,7 +382,7 @@ void* fence(void*) {
         printf("Fence(): Section2 is empty: %s\n", section_one.c_str());
         pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
     } else {
-        if (is_logging) {
+        if (IS_LOGGING) {
             printf("Fence(): Part1: Section2: %s\n", section_two.c_str());
         }
     }
@@ -465,18 +479,22 @@ void* fence(void*) {
         }
     }
 
-    if (is_logging) {
+    if (IS_LOGGING) {
         printf("Fence(): Decoded Part 1: %s\n", fence_thread_result.c_str());
     }
 
-    pthread_exit((void *) nullptr);
+    pthread_exit((void *) nullptr); // Successful exit
 }
 
 /* Takes part_two (stored as global) of the user input and decodes it using the Hill Thread scheme defined in
- * ./assignment_description.pdf */
+ * ./assignment_description.pdf
+ *
+ * Much of this method shares logic with the Valley thread and call a series of hillValley...() functions to parse
+ * three sections from their respective part (part 2 for hill, part 3 for valley)
+ * */
 void* hill(void*) {
     string current_thread = "Hill";
-    if (is_logging) {
+    if (IS_LOGGING) {
         printf("Hill(): Part2: %s\n", part_two.c_str());
     }
 
@@ -516,7 +534,7 @@ void* hill(void*) {
     }
 
     // --------------------------------
-    // Calculate C =(PK) mod (26) Where P = every set of 2 or 3 characters from section 2 or 3
+    // Calculate C =(PK) mod (26) Where P = every set of 2 or 3 characters from section 2
     // --------------------------------
     long P[section_one_int]; // Matrix that holds 2 or 3 plaintext character number positions
     long C[section_one_int]; // Resultant matrix that holds 2 or 3 encoded characters at a time
@@ -528,7 +546,7 @@ void* hill(void*) {
             // C = P * K
             oneByNTimesNbyNMatrix(section_one_int, P, K, C);
             // C = (P* K) mod (26)
-            scalarModOnebyNMatrix(section_one_int, C, 26);
+            scalarModOnebyNMatrix(section_one_int, C, ALPHABET_SIZE);
             // Convert C back into characters and build the cipher string stored in global hill_thread_result variable
             for (long &alphabet_position : C) {
                 hill_thread_result += convertFromAlphabetPosition(alphabet_position);
@@ -536,26 +554,196 @@ void* hill(void*) {
         }
     }
 
-    if (is_logging) {
+    if (IS_LOGGING) {
         printf("Hill(): Encoded Part 2: %s\n", hill_thread_result.c_str());
     }
 
-    pthread_exit((void *) nullptr);
+    pthread_exit((void *) nullptr); // Successful exit
 }
 
-/* Takes part_two (stored as global) of the user input and decodes it using the Valley Thread scheme defined in
- * ./assignment_description.pdf */
+/* Takes part_three (stored as global) of the user input and decodes it using the Valley Thread scheme defined in
+ * ./assignment_description.pdf
+ *
+ * Much of this method shares logic with the Hill thread and call a series of hillValley...() functions to parse
+ * three sections from their respective part (part 2 for hill, part 3 for valley)
+ * */
 void* valley(void*) {
-    pthread_exit((void *) nullptr);
+    string current_thread = "Valley";
+    if (IS_LOGGING) {
+        printf("Valley(): Part3: %s\n", part_three.c_str());
+    }
+
+    // --------------------------------
+    // Extract Section 1 From part_three Using the Logic Shared With Hill Thread
+    // --------------------------------
+    int section_one_int, current_index; // Will be set in hillValleyGetTokenOne()
+    // If the shared logic found that there was an error in the user input, exit the thread
+    if (!hillValleyGetTokenOne(part_three, current_thread, current_index, section_one_int)) {
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
+    }
+
+    // --------------------------------
+    // Extract Section 2 From part_three
+    // --------------------------------
+    string section_two; // Will be set in hillValleyGetTokenTwo()
+    if (!hillValleyGetTokenTwo(part_three, current_thread, current_index, section_one_int, section_two)) {
+        pthread_exit((void *) 2);
+    }
+
+    // --------------------------------
+    // Extract Section 3 From part_three
+    // --------------------------------
+    string section_three = part_three.substr((ulong)current_index, part_three.length() - (ulong)current_index);
+
+    // --------------------------------
+    // Generate Matrix K^-1 From Section 3
+    // --------------------------------
+    // Initialize the K Matrix of size nxn (square), where n is token 1 of Part 2
+    auto ** K = (long**)malloc(sizeof(long*)*section_one_int);
+    for (int i = 0 ; i < section_one_int; i++) {
+        *(K + i) = (long *) malloc(sizeof(long) * section_one_int);
+    }
+
+    if (!hillValleyGenerateMatrixK(section_three, current_thread, section_one_int, K)) {
+        pthread_exit((void *) 2);
+    }
+
+    // --------------------------------
+    // Invert matrix K if it is invertible
+    // --------------------------------
+    // Initialize K_inverse
+    auto ** K_inverse = (long**)malloc(sizeof(long*)*section_one_int);
+    for (int i = 0 ; i < section_one_int; i++) {
+        *(K_inverse + i) = (long *) malloc(sizeof(long) * section_one_int);
+    }
+
+    long n; // The determinant of the original K matrix
+    long z; // (det K) mod 26
+    long h; // (det K)^-1 mod 26
+    if (section_one_int == 3) {
+        // n = Determinant of matrix K
+        n = threeByThreeDeterminant(K);
+
+        // Find n mod 26 (add 26 if negative)
+        z = n % ALPHABET_SIZE;
+        if (z < 0) {
+            z += ALPHABET_SIZE;
+        }
+
+        // If relatively prime, find the multiplicative inverse of (z)^-1 mod 26. Returns false if not relatively prime
+        h = findModularMultiplicativeInverse(z, ALPHABET_SIZE);
+
+        // If not relatively prime, K^-1 mod 26 cannot be found, so exit thread
+        if (h == -1) {
+            printf("Valley(): Unable to find multiplicative inverse of K matrix.\n");
+            pthread_exit((void *) 2);
+        }
+
+        // Initialize temp 2x2 sub_matrix holder
+        auto ** sub_matrix = (long**)malloc(sizeof(long*)*2);
+        for (int i = 0 ; i < 2; i++) {
+            *(sub_matrix + i) = (long *) malloc(sizeof(long) * 2);
+        }
+
+        // Calculate K^-1 using [K^-1]sub_i,j = h(-1)^(i+j)(Dsub_j,i) mod m for i,j = 0 to token 1 (3 in this case)
+        long h_sign;
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++) {
+                // Calculate the sign of h: (-1) ^ (i+j)
+                if ((row + col) % 2 == 0) {
+                    h_sign = 1;
+                } else {
+                    h_sign = -1;
+                }
+
+                // Get the 2x2 submatrix by ignoring the opposite of the current K_inverse row and col (swap them)
+                findSubMatrix(3, col, row, K, sub_matrix);
+
+                // Calculate h(-1)^(i+j)(Dsub_j,i) mod m and save the result in K_inverse matrix
+                K_inverse[row][col] = (h_sign * h) * twoByTwoDeterminant(sub_matrix) % ALPHABET_SIZE;
+                // If mod result is negative, add 26
+                if (K_inverse[row][col] < 0) {
+                    K_inverse[row][col] += ALPHABET_SIZE;
+                }
+            }
+        }
+
+    // When token 1 is 2, and matrix k is a 2x2
+    } else {
+        // n = Determinant of matrix K
+        n = twoByTwoDeterminant(K);
+
+        // Find n mod 26 (add 26 if negative)
+        z = n % ALPHABET_SIZE;
+        if (z < 0) {
+            z += ALPHABET_SIZE;
+        }
+
+        // If relatively prime, find the multiplicative inverse of (z)^-1 mod 26. Returns false if not relatively prime
+        h = findModularMultiplicativeInverse(z, ALPHABET_SIZE);
+
+        // If not relatively prime, K^-1 mod 26 cannot be found, so exit thread
+        if (h == -1) {
+            printf("Valley(): Unable to find multiplicative inverse of K matrix.\n");
+            pthread_exit((void *) 2);
+        }
+
+        // Calculate K^-1 using [K^-1]sub_i,j = h(-1)^(i+j)(Dsub_j,i) mod m for i,j = 0 to token 1 (3 in this case)
+        long h_sign;
+        for (int row = 0; row < 2; row++) {
+            for (int col = 0; col < 2; col++) {
+                // Calculate the sign of h: (-1) ^ (i+j)
+                if ((row + col) % 2 == 0) {
+                    h_sign = 1;
+                } else {
+                    h_sign = -1;
+                }
+
+                // Calculate h(-1)^(i+j)(det(K)) mod m and save the result in K_inverse matrix
+                K_inverse[row][col] = ((h_sign * h) * n) % ALPHABET_SIZE;
+                // If mod result is negative, add 26
+                if (K_inverse[row][col] < 0) {
+                    K_inverse[row][col] += ALPHABET_SIZE;
+                }
+            }
+        }
+    }
+
+    // --------------------------------
+    // Calculate P =(C(K^-1)) mod (26) Where C = every set of 2 or 3 characters from section 2
+    // --------------------------------
+    long P[section_one_int]; // Matrix that holds 2 or 3 plaintext character number positions
+    long C[section_one_int]; // Resultant matrix that holds 2 or 3 encoded characters at a time
+    valley_thread_result = ""; // Will hold the ciphertext
+    for (int i = 0; i < section_two.length(); i++) {
+        P[i % section_one_int] = convertToAlphabetPosition(section_two[i]);
+        // If three characters of section two have been extracted, calculate (P(K^-1)) mod 26
+        if ((i + 1) % section_one_int == 0) {
+            // C = P * K
+            oneByNTimesNbyNMatrix(section_one_int, P, K_inverse, C);
+
+            // C = (P* K^-1) mod (26)
+            scalarModOnebyNMatrix(section_one_int, C, ALPHABET_SIZE);
+
+            // Convert C back into characters and build the cipher string stored in global hill_thread_result variable
+            for (long &alphabet_position : C) {
+                valley_thread_result += convertFromAlphabetPosition(alphabet_position);
+            }
+        }
+    }
+
+    if (IS_LOGGING) {
+        printf("Valley(): Decoded Part 3: %s\n", valley_thread_result.c_str());
+    }
+
+    pthread_exit((void *) nullptr); // Successful exit
 }
 
 // ==============================
 // Share Hill and Valley Logic Methods
 // ==============================
+/* Extracts section 1 of part_X for both hill and valley thread. */
 bool hillValleyGetTokenOne(string &part, string &calling_thread, int &current_index, int &section_one_int) {
-    // --------------------------------
-    // Extract Section 1 From part
-    // --------------------------------
     string section_one = "0";
     // Find the first token (after whitespace) that is either a 2 or a 3
     for (int i = 0; i < part.length(); i++) {
@@ -585,21 +773,22 @@ bool hillValleyGetTokenOne(string &part, string &calling_thread, int &current_in
     return true; // If section 1 is valid, returns true with values for current_index and section_one_int set correctly
 }
 
+/* Extracts section 2 of part_X for both hill and valley thread. */
 bool hillValleyGetTokenTwo(string &part, string &calling_thread, int &current_index, int section_one_int, string &section_two) {
     // Check that there is a character after the first token, and it isn't another digit
-    if (current_index < part_two.length() && !isdigit(part_two[current_index])) {
+    if (current_index < part.length() && !isdigit(part[current_index])) {
         // Continue iteration from where token 1 ended to find the second token
-        for (current_index; current_index < part_two.length(); current_index++) {
+        for (current_index; current_index < part.length(); current_index++) {
             // Continue until a non-alpha or non-space character is found
-            if (isalpha(part_two[current_index]) || isspace(part_two[current_index])) {
+            if (isalpha(part[current_index]) || isspace(part[current_index])) {
                 // Extract token 2
-                section_two += part_two[current_index];
+                section_two += part[current_index];
             } else {
                 break;
             }
         }
     } else {
-        printf("%s(): current part doesn't have a second token or token 1 is more than 1 char. %s\n", calling_thread.c_str(), part_two.c_str());
+        printf("%s(): current part doesn't have a second token or token 1 is more than 1 char. %s\n", calling_thread.c_str(), part.c_str());
         return false; // Return false to exit thread with invalid user input code
     }
 
@@ -609,7 +798,7 @@ bool hillValleyGetTokenTwo(string &part, string &calling_thread, int &current_in
     // If no token 2 (alphabetic chars) were found, exit thread with invalid user input code
     if (section_two.empty()) {
         printf("%s(): current part doesn't have only alphabetic chars for section 2. %s\n",
-               calling_thread.c_str(), part_two.c_str());
+               calling_thread.c_str(), part.c_str());
         return false; // Return false to exit thread with invalid user input code
     }
     // If the length of token 2 is not a multiple of token 1, exit thread with invalid user input code
@@ -622,6 +811,7 @@ bool hillValleyGetTokenTwo(string &part, string &calling_thread, int &current_in
     return true;
 }
 
+/* Generates matrix K given section_three of part_X for both hill and valley thread. */
 bool hillValleyGenerateMatrixK(string &section_three, string &calling_thread, int section_one_int, long** K) {
     regex e("\\s+");
     regex_token_iterator<string::iterator> token_iterator(section_three.begin(), section_three.end(), e , -1);
@@ -695,11 +885,11 @@ bool isValidInputString() {
     // ------------------------
     // First Validation: If string does contain one of each section
     if (regex_match(user_input_string, asterisk_regex)) {
-        if (is_logging) {
+        if (IS_LOGGING) {
             printf("First validation test passed: There are at least one of each: *, **, and *** in input string.\n");
         }
     } else {
-        if (is_logging) {
+        if (IS_LOGGING) {
             printf("First validation test failed: There are not at least one of each: *, **, and *** in input string.\n");
         }
         return false;
@@ -707,12 +897,12 @@ bool isValidInputString() {
 
     // Second Validation: Verify that there is only one occurrence of each *, **, and *** (for a total of 6)
     if (count(user_input_string.begin(), user_input_string.end(), '*') != 6) {
-        if (is_logging) {
+        if (IS_LOGGING) {
             printf("Second validation Failed: There are not only one of each: *, **, and ***.\n");
         }
         return false;
     } else {
-        if (is_logging) {
+        if (IS_LOGGING) {
             printf("Second validation test passed: There are only one of each: *, **, and *** in input string.\n");
         }
     }
@@ -724,12 +914,12 @@ bool isValidInputString() {
     if (part_one.length() <= 0 || isOnlyWhitespace(part_one) ||
         part_two.length() <= 0 || isOnlyWhitespace(part_two) ||
         part_three.length() <= 0 || isOnlyWhitespace(part_three)) {
-        if (is_logging) {
+        if (IS_LOGGING) {
             printf("Third validation test failed: There are null values for at least one part.\n");
             return false;
         }
     } else {
-        if (is_logging) {
+        if (IS_LOGGING) {
             printf("Third validation test passed: Each part is non-null.\n");
         }
     }
@@ -742,9 +932,7 @@ bool isValidInputString() {
 // Matrix Manipulation Methods
 // ==============================
 /* Multiples matrices with dimensions: 1xn * nxn and stores the 1xn results in result_matrix[] */
-void oneByNTimesNbyNMatrix(long size, long one_by_n[], void *n_by_n_in, long result_matrix[]) {
-    long (*n_by_n)[size] = static_cast<long (*)[size]>(n_by_n_in);
-
+void oneByNTimesNbyNMatrix(long size, long one_by_n[], long **n_by_n, long result_matrix[]) {
     long sum;
     // Loop through columns of nxn matrix (i)
     for (int i = 0; i < size; i++) {
@@ -761,9 +949,61 @@ void oneByNTimesNbyNMatrix(long size, long one_by_n[], void *n_by_n_in, long res
 void scalarModOnebyNMatrix(long size, long matrix[], long mod_factor) {
     for (int col = 0; col < size; col++) {
         matrix[col] = matrix[col] % mod_factor;
+        if (matrix[col] < 0) {
+            matrix[col] =+ mod_factor;
+        }
     }
 }
 
+/* Returns the 3x3 determinant of the passed in matrix */
+long threeByThreeDeterminant(long **matrix) {
+    // Initialize temp 2x2 sub_matrix holder
+    auto ** sub_matrix = (long**)malloc(sizeof(long*)*2);
+    for (int i = 0 ; i < 2; i++) {
+        *(sub_matrix + i) = (long *) malloc(sizeof(long) * 2);
+    }
+
+    long sub_determinant[3];
+    long current_coefficient;
+    for (int col = 0; col < 3; col++) {
+        current_coefficient = matrix[0][col]; // Get each element on first row to scalar multiply out 2x2 sub matrices
+        findSubMatrix(3, 0, col, matrix, sub_matrix); // Get the 2x2 submatrix by ignoring current column
+        sub_determinant[col] = twoByTwoDeterminant(sub_matrix) * current_coefficient; // Find sub determinant * coeff
+    }
+
+    // Finish calculations of 3x3 determinant by combining sub determinants
+    return sub_determinant[0] - sub_determinant[1] + sub_determinant[2];
+}
+
+/* Returns the integer 2x2 determinant of a matrix */
+long twoByTwoDeterminant(long **matrix) {
+    return matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0];
+}
+
+/* Accepts a sizexsize matrix and builds size-1xsize-1 sub_matrix from passed in larger matrix.
+ * Buuild sub-matrix as if we were to cross out a row and col (rows/cols_to_ignore) from the larger matrix */
+void findSubMatrix(long size, long row_to_ignore, long col_to_ignore, long** matrix,  long** sub_matrix) {
+    // Copy non-ignored rows and cols of matrix into sub_matrix
+    int sub_row = 0;
+    int sub_col = 0;
+    for (int row = 0; row < size; row++) {
+        // Skip copying over row_to_ignore when building matrix
+        if (row == row_to_ignore) {
+            continue;
+        }
+
+        for (int col = 0; col < size; col++) {
+            // Skip col_to_ignore when building matrix
+            if (col == col_to_ignore) {
+                continue;
+            }
+            sub_matrix[sub_row][sub_col++] = matrix[row][col];
+        }
+        // Reset sub matrix cols, go to next sub matrix row
+        sub_col = 0;
+        sub_row++;
+    }
+}
 
 
 // ==============================
@@ -906,6 +1146,32 @@ char convertFromAlphabetPosition(long position_number) {
     return (char)(65 + position_number);
 }
 
+/* Returns the modular multiplicative inverse of b^-1 mod (n).
+ * Loops through all possible x < n, until (b * x) mod n = 1 is found */
+long findModularMultiplicativeInverse(long b, long n) {
+    if (gcd(b, n) != 1) {
+        return -1;
+    }
+
+    b = b % n;
+
+    // Try every x < n until one is found
+    for (int x = 1; x < n; x++) {
+        // If (b * x) mod n = 1, then x is the multiplicative inverse
+        if ((b * x) % n == 1) {
+            return x;
+        }
+    }
+
+    // If no multiplicative inverse is found, return -1
+    return -1;
+}
+
+/* Returns the gcd of two integer numbers */
+long gcd(long a, long b) {
+    return b == 0 ? a : gcd(b, a % b);
+}
+
 // ==================
 // Debug Methods
 // ==================
@@ -917,4 +1183,14 @@ void print2dMatrix(long size, long **matrix) {
         printf("\n");
     }
 }
+
+void print1dMatrix(long size, long *matrix) {
+    printf("[");
+    for (int i = 0; i < size; i++) {
+        printf("%ld ", matrix[i]);
+    }
+    printf("]\n");
+}
+
+
 
