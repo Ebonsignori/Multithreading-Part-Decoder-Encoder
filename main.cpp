@@ -23,21 +23,30 @@ void* fence(void*);
 void* hill(void*);
 void* valley(void*);
 // Validation Methods
-bool isValidCipher();
-// Helper/Utility Methods
+bool isValidInputString();
+// Matrix Manipulation Methods
+void oneByNTimesNbyNMatrix(long size, long one_by_n[], void *n_by_n_in, long result_matrix[]);
+void scalarModOnebyNMatrix(long size, long matrix[], long mod_factor);
+// Input Part Handling Methods
 void splitIntoParts();
 ulong findPartLength(ulong desired_index, ulong other_index_1, ulong other_index_2);
+// Helper/Utility Methods
 ulong maximum(ulong a, ulong b, ulong c);
 ulong median(ulong a, ulong b, ulong c);
 ulong minimum(ulong a, ulong b, ulong c);
 void removeAllWhiteSpace(string &input_str);
+void removeLeadingWhitespace(string &input_str);
+void removeTrailingWhitespace(string &input_str);
+bool isOnlyWhitespace(string input_str);
+long convertToAlphabetPosition(char character);
+char convertFromAlphabetPosition(long position_number);
 
 // ==============================
 // Globals
 // ==============================
 bool is_logging = true; // True to turn on console logging for debugging purposes
-string cipher_string, part_one, part_two, part_three;
-string part_one_plaintext, part_two_plaintext, part_three_plaintext;
+string user_input_string, part_one, part_two, part_three;
+string fence_thread_result, hill_thread_result, valley_thread_result;
 
 // ==============================
 // Regex Globals
@@ -127,17 +136,17 @@ void* sifter(void *) {
     uint test_index = 0;
 
     while (true) {
-        cipher_string = ""; // Reset cipher_string to an empty string (for multiple runs of program)
+        user_input_string = ""; // Reset user_input_string to an empty string (for multiple runs of program)
         // ------------------------------
-        // Get a Valid Cipher String From User
+        // Get a Valid Input String From User
         // ------------------------------
-        bool is_valid_cipher;
+        bool is_valid_user_input;
         int attempts = 0;
         // TODO: Change back into 3 before deploying
         int max_attempts = 13;
 
         // TEMP
-        uint total_tests = 18;
+        uint total_tests = 21;
         auto test_inputs = new string[total_tests];
         // Hashemi Tests
         test_inputs[0] =  "***3 rrlmwbkaspdh 17 17 5 21 18 21 2 2 19 12 *123555eu5eotsya**3 GoodMorningJohn 3 2 1 20 15 4 10 22 3";
@@ -154,40 +163,46 @@ void* sifter(void *) {
         test_inputs[11] = "*zg ZHCHUUHOPXKPYAF***GHEDQHQQ 9 11 4 5 ** ABHJUTVOP 5 -2 3 4 12 32 1 0 3";
         test_inputs[12] = "***ABC 5 6 7 8 10 1 4 8 11*K SAAPXGOW**MKPW 10 2 12 1*J RZZOWFNV";
         // Evan Tests
-        test_inputs[13] = "**ABC 5 6 7 8 10 1 4 8 11*K SAAPXGOW**MKPW 10 2 12 1*J RZZOWFNV"; // Invalid
-        test_inputs[14] = "***ABC 5 6 7 8 10 1 4 8 11* **J RZZOWFNV"; // Invalid?
-        test_inputs[15] = "***ABC 5 6 7 8 10 1 4 8 11* t3w **"; // Invalid?
-        test_inputs[16] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**DNE***DNE";
-        test_inputs[17] = "*93456312ttnaAptMTSUOaodwcoIXknLypETZ**DNE***DNE";
+        test_inputs[13] = "**DNE*DNE**DNE*DNE"; // Too many * - Invalid
+        test_inputs[14] = "***DNE* **DNE"; // Null part 1 - Invalid
+        test_inputs[15] = "***DNE*DNE t3w **"; // Null part 2 - Invalid
+        // Part 1 - Fence
+        test_inputs[16] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**DNE***DNE"; // Valid
+        test_inputs[17] = "*93456312ttnaAptMTSUOaodwcoIXknLypETZ**DNE***DNE"; // Invalid
+        // Part 2 - Hill
+        test_inputs[18] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**     ***DNE"; // All whitespace part 2 - Invalid
+        test_inputs[19] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15***DNE";
+        test_inputs[20] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3  p ay more money  17 17 5 21   18 21 2 2   19 0 15  ***DNE";
 
 
 
 
-        // Prompt user to enter input cipher string until a valid string is entered or attempts run out
-        while (cipher_string.empty() && attempts < max_attempts) {
-            printf("\n\nEnter your cipher string of three parts, or enter 'quit' to exit program:\n");
+
+        // Prompt user to enter input string until a valid string is entered or attempts run out
+        while (user_input_string.empty() && attempts < max_attempts) {
+            printf("\n\nEnter your input string of three parts, or enter 'quit' to exit program:\n");
             attempts++;
             try {
                 if (test_index < total_tests) {
-                    cipher_string = test_inputs[test_index++];
+                    user_input_string = test_inputs[test_index++];
                 } else {
-                    getline(cin, cipher_string);
+                    getline(cin, user_input_string);
                 }
                 if (is_logging) {
-                    printf("Entered String: %s\n", cipher_string.c_str());
+                    printf("Entered String: %s\n", user_input_string.c_str());
                 }
             } catch (...) {
                 pthread_exit((void *) 1); // Exit thread with unsuccessful 1 code on reading input error
             }
 
-            if (cipher_string == "quit" || cipher_string == "exit") {
+            if (user_input_string == "quit" || user_input_string == "exit") {
                 pthread_exit((void *) nullptr); // Exit thread and return successful 0
             }
 
-            is_valid_cipher = isValidCipher();
+            is_valid_user_input = isValidInputString();
 
             // Give user another attempt to enter input, unless they exceed attempts
-            if (!is_valid_cipher) {
+            if (!is_valid_user_input) {
                 // If user ran out of input attempts, notify user and exit program
                 if (attempts >= max_attempts) {
                     printf("You've run out of the maximum allowed attempts: %d"
@@ -197,13 +212,13 @@ void* sifter(void *) {
                 } else {
                     printf("Invalid input. "
                            "Please enter a string made up of the three parts that make up the encoded message.\n");
-                    cipher_string = ""; // Empty user input in preparation for next iteration
+                    user_input_string = ""; // Empty user input in preparation for next iteration
                 }
             }
         }
 
         if (is_logging) {
-            printf("User entered a valid cipher of: \"%s\" after %d attempts\n", cipher_string.c_str(), attempts);
+            printf("User entered a valid input of: \"%s\" after %d attempts\n", user_input_string.c_str(), attempts);
         }
 
         // ------------------------------
@@ -217,7 +232,7 @@ void* sifter(void *) {
         int decoder_created;
         int decoder_joined;
 
-        // Create decoder thread and pass the input cipher as an argument
+        // Create decoder thread and pass the user input as an argument
         decoder_created = pthread_create(&decoder_thread, nullptr, decoder, nullptr);
 
         if (decoder_created == 0) {
@@ -264,7 +279,7 @@ void* sifter(void *) {
  * Thread returns a uint code with the following meanings:
  *  0 = successful exit (all 3 thread decoded)
  *  1 = Generic error
- *  2 = Invalid ciphertext found by one of the decoder threads
+ *  2 = Invalid user input string found by one of the decoder threads
  * */
 void* decoder(void*) {
     /* Note to Dr. Hashemi: It made more sense to already split the thread into three parts during validation,
@@ -277,13 +292,16 @@ void* decoder(void*) {
     int decoder_thread_created[3];
     int decoder_thread_joined[3];
 
-    // For each decoder method, create a thread and wait (join) for it to be completed
+    // For each decoder method, create a thread
     for (uint i = 0; i < 3; i++) {
         decoder_thread_created[i] = pthread_create(&decoder_threads[i], nullptr, threads_funcs[i], nullptr);
+    }
+    // After each thread has begun, wait for each to be completed with pthread_join
+    for (uint i = 0; i < 3; i++) {
         if (decoder_thread_created[i] == 0) {
             decoder_thread_joined[i] = pthread_join(decoder_threads[i], (void **)&decoder_retvals[i]);
 
-            // Ciphertext sent to a part was found to be invalid
+            // Split user input sent to a part was found to be invalid
             if (decoder_retvals[i] == 2) {
                 if (i == 0) {
                     printf("Part1 of your string was found to be invalid by the Fence thread.\nDecoding stopped.\n");
@@ -292,7 +310,7 @@ void* decoder(void*) {
                 } else if (i == 2) {
                     printf("Part3 of your string was found to be invalid by the Valley thread.\nDecoding stopped.\n");
                 }
-                pthread_exit((void *) 2); // Exit thread with unsuccessful 2 code: Invalid ciphertext
+                pthread_exit((void *) 2); // Exit thread with unsuccessful 2 code: Invalid input
             }
 
             // If something went wrong with join, or with one of the decoder threads, exit thread
@@ -305,13 +323,13 @@ void* decoder(void*) {
     pthread_exit((void *) nullptr); // Exit thread with successful code
 }
 
-/* Takes part_one (stored as global) of the ciphertext input and decodes it using the Fence Thread scheme defined in
+/* Takes part_one (stored as global) of the user input and decodes it using the Fence Thread scheme defined in
  * ./assignment_description.pdf
  *
  * Thread returns a uint code with the following meanings:
  *  0 = successful exit (thread decoded)
  *  1 = Generic error
- *  2 = Invalid ciphertext
+ *  2 = Invalid user input
  * */
 void* fence(void*) {
     if (is_logging) {
@@ -336,7 +354,7 @@ void* fence(void*) {
     // If there is no numeric part, exit thread
     if (section_one.length() <= 0) {
         printf("Fence(): Section1 is empty: %s\n", section_one.c_str());
-        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid ciphertext
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
     } else {
         if (is_logging) {
             printf("Fence(): Part1: Section1: %s\n", section_one.c_str());
@@ -346,7 +364,7 @@ void* fence(void*) {
     // If there is no character part, exit thread
     if (section_two.length() <= 0) {
         printf("Fence(): Section2 is empty: %s\n", section_one.c_str());
-        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid ciphertext
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
     } else {
         if (is_logging) {
             printf("Fence(): Part1: Section2: %s\n", section_two.c_str());
@@ -378,7 +396,7 @@ void* fence(void*) {
     // If no repeating digits, exit thread with input error code
     if (p == -1 || q == -1) {
         printf("Fence(): Section1 has no repeated digits: %s\n", section_one.c_str());
-        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid ciphertext
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
     }
 
     // --------------------------------
@@ -395,14 +413,14 @@ void* fence(void*) {
     // Exit thread with input error if k is empty
     if (n <= 0) {
         printf("Fence(): k is empty.\n");
-        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid ciphertext
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
     }
     // In order for k to be valid, it must consume all digits from 1 to N where N = length(k);
     for (int i = 1; i < n + 1; i++) {
         key = '0' + (char)i;
         if (k.find(key) == string::npos) {
             printf("Fence(): k doesn't have 1 to Length(k) digits: %s\n", k.c_str());
-            pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid ciphertext
+            pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
         }
     }
 
@@ -411,7 +429,7 @@ void* fence(void*) {
     // --------------------------------
     if (section_two.length() % n != 0) {
         printf("Fence(): length(section_two) is not divisible by length(k) (N): %s\n", k.c_str());
-        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid ciphertext
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
     }
     long j = section_two.length() / n;
     // Partition section_two into n columns of j characters in each column (j rows)
@@ -437,27 +455,174 @@ void* fence(void*) {
         }
     }
 
-    part_one_plaintext = "";
+    // Build plaintext string from matrix and store it in fence_thread_result global
+    fence_thread_result = "";
     for (int row = 0; row < j; row++) {
         for (int col = 0; col < n; col++) {
-            part_one_plaintext += rearranged_matrix[row][col];
+            fence_thread_result += rearranged_matrix[row][col];
         }
     }
 
     if (is_logging) {
-        printf("Fence(): Decoded Part 1: %s", part_one_plaintext.c_str());
+        printf("Fence(): Decoded Part 1: %s\n", fence_thread_result.c_str());
     }
 
     pthread_exit((void *) nullptr);
 }
 
-/* Takes part_two (stored as global) of the ciphertext input and decodes it using the Hill Thread scheme defined in
+/* Takes part_two (stored as global) of the user input and decodes it using the Hill Thread scheme defined in
  * ./assignment_description.pdf */
 void* hill(void*) {
+    if (is_logging) {
+        printf("Hill(): Part2: %s\n", part_two.c_str());
+    }
+
+    // --------------------------------
+    // Extract Section 1 From part_two
+    // --------------------------------
+    string section_one = "0";
+    int current_index = 0;
+    // Find the first token (after whitespace) that is either a 2 or a 3
+    for (int i = 0; i < part_two.length(); i++) {
+        if (!isspace(part_two[i])) {
+            // If first token isn't a 2 or 3, exit thread
+            if (part_two[i] == '2' || part_two[i] == '3') {
+                section_one = part_two[i];
+                current_index = i + 1;
+                break;
+            } else {
+                printf("Hill(): section_one is not a 2 or a 3: %c\n", part_two[i]);
+                pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
+            }
+        }
+    }
+    // If input was all whitespace, exit thread with input error code
+    if (section_one == "0") {
+        printf("Hill(): part_two is all whitespace. %s\n", part_two.c_str());
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
+    }
+    int section_one_int = section_one[0] - '0';
+
+    // --------------------------------
+    // Extract Section 2 From part_two
+    // --------------------------------
+    string section_two;
+    // Check that there is a character after the first token, and it isn't another digit
+    if (current_index < part_two.length() && !isdigit(part_two[current_index])) {
+        // Continue iteration from where token 1 ended to find the second token
+        for (current_index; current_index < part_two.length(); current_index++) {
+            // Continue until a non-alpha or non-space character is found
+            if (isalpha(part_two[current_index]) || isspace(part_two[current_index])) {
+                // Extract token 2
+                section_two += part_two[current_index];
+            } else {
+                break;
+            }
+        }
+    } else {
+        printf("Hill(): part_two doesn't have a second token or token 1 is more than 1 char. %s\n", part_two.c_str());
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
+    }
+
+    // Remove whitespace from section 2
+    removeAllWhiteSpace(section_two);
+
+    // If no token 2 (alphabetic chars) were found, exit thread with invalid user input code
+    if (section_two.empty()) {
+        printf("Hill(): part_two doesn't have the alphabetic chars for section_two. %s\n", part_two.c_str());
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
+    }
+    // If the length of token 2 is not a multiple of token 1, exit thread with invalid user input code
+    if (section_two.length() % section_one_int != 0) {
+        printf("Hill(): length(section_two): %lu is not a multiple of token 1: %d.\n",
+               section_two.length(), section_one_int);
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
+    }
+
+    // --------------------------------
+    // Extract Section 3 From part_two into matrix K
+    // --------------------------------
+    string section_three = part_two.substr((ulong)current_index, part_two.length() - (ulong)current_index);
+
+    // Trim left and right white space TODO: Is this unnecessary?
+    removeLeadingWhitespace(section_three);
+    removeTrailingWhitespace(section_three);
+    regex e("\\s+");
+    regex_token_iterator<string::iterator> token_iterator(section_three.begin(), section_three.end(), e , -1);
+    regex_token_iterator<string::iterator> end;
+    long K[section_one_int][section_one_int]; // K is an nxn square matrix, where n is token1 of Part2
+    int row = 0, col = 0, number_of_tokens = 0;
+    while (token_iterator != end) {
+        // Get current token string from iterator
+        string current_token = (string)*token_iterator++;
+
+        // Check that the token is a digit (only numerical characters) and not alphabetic
+        for (char& character : current_token) {
+            if (!isdigit(character)) {
+                printf("Hill(): invalid section 3: All tokens must be numeric characters: %s.\n",
+                       section_three.c_str());
+                pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
+            }
+        }
+
+        // Keep track of current row and column index of the K matrix
+        if (col > section_one_int - 1) {
+            col = 0;
+            row++;
+        }
+        // Convert each digit token in section3 into a number and place it into the K matrix
+        try {
+            K[row][col++] = std::stoi(current_token);
+        } catch (...) {
+            printf("Hill(): invalid section 3: Non-digit characters in third section: %s.\n",
+                   section_three.c_str());
+            pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
+        }
+        // Keep track of the number of tokens added to section 3
+        number_of_tokens++;
+    }
+
+    // Check that the number of tokens is >= 4 or >= 9 for when token1 is 2 and 3, respectively
+    if (section_one_int == 2 && number_of_tokens < 4) {
+        printf("Hill(): invalid section 3: Token 1 is 2, but the number of characters is less than 4: %s.\n",
+               section_three.c_str());
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
+    }
+    if (section_one_int == 3 && number_of_tokens < 9) {
+        printf("Hill(): invalid section 3: Token 1 is 3, but the number of characters is less than 9: %s.\n",
+               section_three.c_str());
+        pthread_exit((void *) 2); // Exit thread with unsuccessful code, 2: Invalid user input
+    }
+
+    // --------------------------------
+    // Calculate C =(PK) mod (26) Where P = every set of 3 characters from section 2
+    // --------------------------------
+    long P[section_one_int]; // Matrix that holds 3 plaintext character number positions
+    long C[section_one_int]; // Resultant matrix that holds 3 encoded characters at a time
+    hill_thread_result = ""; // Will hold the ciphertext
+    for (int i = 0; i < section_two.length(); i++) {
+        P[i % 3] = convertToAlphabetPosition(section_two[i]);
+        // If three characters of section two have been extracted, calculate (PK) mod 26
+        if ((i + 1) % 3 == 0) {
+            // C = P * K
+            oneByNTimesNbyNMatrix(section_one_int, P, K, C);
+            // C = (P* K) mod (26)
+            scalarModOnebyNMatrix(section_one_int, C, 26);
+            // Convert C back into characters and build the cipher string stored in global hill_thread_result variable
+            for (long &alphabet_position : C) {
+                hill_thread_result += convertFromAlphabetPosition(alphabet_position);
+            }
+        }
+    }
+
+    if (is_logging) {
+        printf("Hill(): Encoded Part 2: %s\n", hill_thread_result.c_str());
+    }
+
     pthread_exit((void *) nullptr);
 }
 
-/* Takes part_two (stored as global) of the ciphertext input and decodes it using the Valley Thread scheme defined in
+/* Takes part_two (stored as global) of the user input and decodes it using the Valley Thread scheme defined in
  * ./assignment_description.pdf */
 void* valley(void*) {
     pthread_exit((void *) nullptr);
@@ -467,46 +632,48 @@ void* valley(void*) {
 // ==============================
 // Validation Methods
 // ==============================
-/* Returns true if passed in cipher_string is in three parts specified by a number of asterisk symbols (6 total)
+/* Returns true if passed in user_input_string is in three parts specified by a number of asterisk symbols (6 total)
  *
  * There are three phases of validation:
- *  First Validation: There are at least one of each *, **, and *** in the cipher string
- *  Second Validation: There are only one of each *, **, and *** in the cipher string
+ *  First Validation: There are at least one of each *, **, and *** in the user input string
+ *  Second Validation: There are only one of each *, **, and *** in the use input string
  *  Third Validation: Each part is non-null
  * */
-bool isValidCipher() {
-    // Use regex to check that the cipher string contains at least 1 of each "*", "**", and "***".
-
-
+bool isValidInputString() {
+    // ------------------------
+    // Use regex to check that the user input string contains at least 1 of each "*", "**", and "***".
+    // ------------------------
     // First Validation: If string does contain one of each section
-    if (regex_match(cipher_string, asterisk_regex)) {
+    if (regex_match(user_input_string, asterisk_regex)) {
         if (is_logging) {
-            printf("First validation test passed: There are at least one of each: *, **, and *** in cipher string.\n");
+            printf("First validation test passed: There are at least one of each: *, **, and *** in input string.\n");
         }
     } else {
         if (is_logging) {
-            printf("First validation test failed: There are not at least one of each: *, **, and *** in cipher string.\n");
+            printf("First validation test failed: There are not at least one of each: *, **, and *** in input string.\n");
         }
         return false;
     }
 
     // Second Validation: Verify that there is only one occurrence of each *, **, and *** (for a total of 6)
-    if (std::count(cipher_string.begin(), cipher_string.end(), '*') != 6) {
+    if (count(user_input_string.begin(), user_input_string.end(), '*') != 6) {
         if (is_logging) {
             printf("Second validation Failed: There are not only one of each: *, **, and ***.\n");
         }
         return false;
     } else {
         if (is_logging) {
-            printf("Second validation test passed: There are only one of each: *, **, and *** in cipher string.\n");
+            printf("Second validation test passed: There are only one of each: *, **, and *** in input string.\n");
         }
     }
 
     // Verify that splitting the string into three parts gives 3 non-null parts
     splitIntoParts();
 
-    // Third Validation: Verify that each part is non-null
-    if (part_one.length() <= 0 || part_two.length() <= 0 || part_three.length() <= 0) {
+    // Third Validation: Verify that each part is non-null (has elements and those elements aren't just whitespace)
+    if (part_one.length() <= 0 || isOnlyWhitespace(part_one) ||
+        part_two.length() <= 0 || isOnlyWhitespace(part_two) ||
+        part_three.length() <= 0 || isOnlyWhitespace(part_three)) {
         if (is_logging) {
             printf("Third validation test failed: There are null values for at least one part.\n");
             return false;
@@ -521,27 +688,54 @@ bool isValidCipher() {
     return true;
 }
 
+// ==============================
+// Matrix Manipulation Methods
+// ==============================
+/* Multiples matrices with dimensions: 1xn * nxn and stores the 1xn results in result_matrix[] */
+void oneByNTimesNbyNMatrix(long size, long one_by_n[], void *n_by_n_in, long result_matrix[]) {
+    long (*n_by_n)[size] = static_cast<long (*)[size]>(n_by_n_in);
+
+    long sum;
+    // Loop through columns of nxn matrix (i)
+    for (int i = 0; i < size; i++) {
+        sum = 0;
+        // Loop through columns of 1xn matrix (j)
+        for (int j = 0; j < size; j++) {
+            // Sum the product of each column in the 1xn matrix with the current column of the nxn matrix
+            sum += one_by_n[j] * n_by_n[j][i];
+        }
+        result_matrix[i] = sum;
+    }
+}
+/* Performs the operation matrix mod (mod_factor), where the matrix is 1xsize */
+void scalarModOnebyNMatrix(long size, long matrix[], long mod_factor) {
+    for (int col = 0; col < size; col++) {
+        matrix[col] = matrix[col] % mod_factor;
+    }
+}
+
+
 
 // ==============================
-// Helper/Utility Methods
+// Input Part Handling Methods
 // ==============================
-/* Splits the ciphertext into three parts where Part1, Part2, and Part3 are started by *, **, and *** respectively
+/* Splits the input string into three parts where Part1, Part2, and Part3 are started by *, **, and *** respectively
  * The results of the split are saved in the global variables part_one, part_two, and part_three. */
 void splitIntoParts() {
     ulong part_one_length, part_two_length, part_three_length = 0;
 
     // Find the index of the only occurrence of part 3's *** asterisks
-    ulong three_asterisk_index = cipher_string.find("***");
+    ulong three_asterisk_index = user_input_string.find("***");
 
     // Attempt to find the index of part 2's two asterisks
-    ulong two_asterisk_index = cipher_string.find("**");
+    ulong two_asterisk_index = user_input_string.find("**");
     // If the ** asterisks are registered as the first 2 asterisks of ***, search from an index after ***
     if (two_asterisk_index == three_asterisk_index) {
-        two_asterisk_index = cipher_string.find("**", three_asterisk_index + 2);
+        two_asterisk_index = user_input_string.find("**", three_asterisk_index + 2);
     }
 
     // Attempt to find the index of part 3's single, * asterisks
-    ulong one_asterisk_index = cipher_string.find('*');
+    ulong one_asterisk_index = user_input_string.find('*');
     ulong temp_index = one_asterisk_index;
     // While the index of the single * asterisk is picking up the index of ** or *** asterisks, continue searching
     while (one_asterisk_index == two_asterisk_index ||
@@ -549,56 +743,43 @@ void splitIntoParts() {
            one_asterisk_index == three_asterisk_index ||
            one_asterisk_index == three_asterisk_index + 1 ||
            one_asterisk_index == three_asterisk_index + 2) {
-        one_asterisk_index = cipher_string.find('*', temp_index++);
+        one_asterisk_index = user_input_string.find('*', temp_index++);
     }
 
     // Get the length of each part using the indexes of each asterisk
     part_one_length = findPartLength(one_asterisk_index, two_asterisk_index, three_asterisk_index);
     // Extract the part substring from after each part-identifying asterisk to the adjusted length of the part
-    part_one = cipher_string.substr(one_asterisk_index + 1, part_one_length - 1);
+    part_one = user_input_string.substr(one_asterisk_index + 1, part_one_length - 1);
 
     // Repeat the same procedures for getting the part_one split for part 2 and 3
     part_two_length = findPartLength(two_asterisk_index, one_asterisk_index, three_asterisk_index);
-    part_two = cipher_string.substr(two_asterisk_index + 2, part_two_length - 2);
+    part_two = user_input_string.substr(two_asterisk_index + 2, part_two_length - 2);
 
     part_three_length = findPartLength(three_asterisk_index, one_asterisk_index, two_asterisk_index);
-    part_three = cipher_string.substr(three_asterisk_index + 3, part_three_length - 3);
-}
-
-/* Returns the maximum value of 3 values */
-ulong maximum(ulong a, ulong b, ulong c) {
-    return max(max(a, b), max(b, c));
-}
-/* Returns the middle value of 3 values */
-ulong median(ulong a, ulong b, ulong c) {
-    return max(min(a, b), min(max(a, b), c));
-}
-/* Returns the minimum value of 3 values */
-ulong minimum(ulong a, ulong b, ulong c) {
-    return min(min(a, b), min(b, c));
+    part_three = user_input_string.substr(three_asterisk_index + 3, part_three_length - 3);
 }
 
 /* Takes in the indexes of the three asterisks, with the first argument "desired_index" being the asterisks for whose
  * part length we wish to determine and return. Returns the part length from the identifying-asterisk to the beginning
- * of the next asterisk or the end of the ciphertext */
+ * of the next asterisk or the end of the input string */
 ulong findPartLength(ulong desired_index, ulong other_index_1, ulong other_index_2) {
     ulong part_length = 0;
 
     // If the '*', '**', or '***' in question is the last of the three parts
     if (maximum(desired_index, other_index_1, other_index_2) == desired_index) {
-        part_length = cipher_string.length() - desired_index;
+        part_length = user_input_string.length() - desired_index;
 
-    // If the '*', '**', or '***' in question is the second of the three parts
+        // If the '*', '**', or '***' in question is the second of the three parts
     } else if (median(desired_index, other_index_1, other_index_2) == desired_index) {
         part_length = max(other_index_1, other_index_2) - desired_index;
     }
 
-    // If the '*', '**', or '***' in question is the first of the three parts
+        // If the '*', '**', or '***' in question is the first of the three parts
     else if (minimum(desired_index, other_index_1, other_index_2) == desired_index) {
         part_length = min(other_index_1, other_index_2) - desired_index;
     }
 
-    // Failsafe that should never be reached
+        // Failsafe that should never be reached
     else {
         printf("Something went terribly wrong in findPartLength(). Please contact admin.");
         exit(1);
@@ -607,7 +788,71 @@ ulong findPartLength(ulong desired_index, ulong other_index_1, ulong other_index
     return part_length;
 }
 
+
+
+// ==============================
+// Helper/Utility Methods
+// ==============================
+/* Returns the maximum value of 3 values */
+ulong maximum(ulong a, ulong b, ulong c) {
+    return max(max(a, b), max(b, c));
+}
+
+/* Returns the middle value of 3 values */
+ulong median(ulong a, ulong b, ulong c) {
+    return max(min(a, b), min(max(a, b), c));
+}
+
+/* Returns the minimum value of 3 values */
+ulong minimum(ulong a, ulong b, ulong c) {
+    return min(min(a, b), min(b, c));
+}
+
 /* Removes all whitespace from a pass-by-reference string */
 void removeAllWhiteSpace(string &input_str) {
     input_str = regex_replace(input_str, regex("\\s+"), "");
 }
+
+/* Removes all left (leading) whitespace */
+void removeLeadingWhitespace(string &input_str) {
+    while(!input_str.empty() && isspace(*input_str.begin()))
+        input_str.erase(input_str.begin());
+}
+
+
+/* Removes all right (trailing) whitespace */
+void removeTrailingWhitespace(string &input_str) {
+    while(!input_str.empty() && isspace(*input_str.rbegin()))
+        input_str.erase(input_str.length() - 1);
+}
+
+/* Returns true if a string only consists of whitespace, false otherwise */
+bool isOnlyWhitespace(string input_str) {
+    for (char& c : input_str) {
+        if (!isspace(c)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/* Converts a character into its alphabetic position number. Where A = 0, B = 1, ... Z = 25. Case insensitive. */
+long convertToAlphabetPosition(char character) {
+    if (islower(character)) {
+        return character - 'a';
+    }
+    return character - 'A';
+}
+
+
+/* Converts a character from its alphabetic position number to the character that position.
+ * Where 0 = A, 1 = B, ... 25 = Z. Case insensitive. */
+char convertFromAlphabetPosition(long position_number) {
+    // If lower case, start with ASCII character lowercase a (97)
+    if (position_number >= 97 && position_number <= 122) {
+        return char(97 + position_number);
+    }
+    return (char)(65 + position_number);
+}
+

@@ -35,8 +35,20 @@ The specific decoding scheme for each of these three methods can be found in the
 ```
 
 ## Custom Sample Inputs
+For testing invalid inputs caught by the initial thread
+```
+**DNE*DNE**DNE*DNE
+***DNE* **DNE
+***DNE*DNE t3w **
+```
 For testing `Part1`, the `Fence` Decoder Thread
 ```
 *43125678812ttnaAptMTSUOaodwcoIXknLypETZ**DNE***DNE
 *93456312ttnaAptMTSUOaodwcoIXknLypETZ**DNE***DNE
+```
+For testing `Part2`, the `Hill` Decoder Thread
+```
+*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**     ***DNE
+*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15***DNE
+*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3  p ay more money  17 17 5 21   18 21 2 2   19 0 15  ***DNE
 ```
