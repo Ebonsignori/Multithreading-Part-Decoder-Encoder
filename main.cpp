@@ -28,6 +28,8 @@ bool hillValleyGetTokenTwo(string &part, string &calling_thread, int &current_in
 bool hillValleyGenerateMatrixK(string &section_three, string &calling_thread, int section_one_int, long** K);
 // Validation Methods
 bool isValidInputString();
+bool isOnlyWhitespace(string input_str);
+bool isDigitsAndWhiteSpace(const string &str);
 // Matrix Manipulation Methods
 void oneByNTimesNbyNMatrix(long size, long one_by_n[], long **n_by_n, long result_matrix[]);
 void scalarModOnebyNMatrix(long size, long matrix[], long mod_factor);
@@ -42,9 +44,6 @@ ulong maximum(ulong a, ulong b, ulong c);
 ulong median(ulong a, ulong b, ulong c);
 ulong minimum(ulong a, ulong b, ulong c);
 void removeAllWhiteSpace(string &input_str);
-void removeLeadingWhitespace(string &input_str);
-void removeTrailingWhitespace(string &input_str);
-bool isOnlyWhitespace(string input_str);
 long convertToAlphabetPosition(char character);
 char convertFromAlphabetPosition(long position_number);
 long findModularMultiplicativeInverse(long b, long n);
@@ -56,7 +55,7 @@ void print2dMatrix(long size, long **matrix);
 // ==============================
 // Globals
 // ==============================
-const bool IS_LOGGING = true; // True to turn on console logging for debugging purposes
+const bool IS_LOGGING = false; // Set to true to turn on console logging for debugging purposes
 const int ALPHABET_SIZE = 26;
 string user_input_string, part_one, part_two, part_three;
 string fence_thread_result, hill_thread_result, valley_thread_result;
@@ -95,7 +94,7 @@ int main() {
         }
     } else if (sifter_created == 1) {
         printf("Error spawning sifter thread from main module thread.\n");
-        std::exit(1); // Exit with unsuccessful error code
+        exit(1); // Exit with unsuccessful error code
     }
 
     // Join sifter thread with parent thread. Waits for results of sifter thread before continuing sequential execution
@@ -126,7 +125,7 @@ int main() {
     // If error joining sifter thread, exit with error
     } else {
         printf("Error joining sifter thread with main module thread.\n");
-        std::exit(1); // Exit with unsuccessful error code
+        exit(1); // Exit with unsuccessful error code
     }
 
     return 0;
@@ -146,8 +145,6 @@ int main() {
  *   2 = user ran out of input attempts
  * */
 void* sifter(void *) {
-    uint test_index = 0;
-
     while (true) {
         user_input_string = ""; // Reset user_input_string to an empty string (for multiple runs of program)
         // ------------------------------
@@ -155,52 +152,15 @@ void* sifter(void *) {
         // ------------------------------
         bool is_valid_user_input;
         int attempts = 0;
-        // TODO: Change back into 3 before deploying
-        int max_attempts = 13;
-
-        // TEMP
-        uint total_tests = 25;
-        auto test_inputs = new string[total_tests];
-        // Hashemi Tests
-        test_inputs[0] =  "***3 rrlmwbkaspdh 17 17 5 21 18 21 2 2 19 12 *123555eu5eotsya**3 GoodMorningJohn 3 2 1 20 15 4 10 22 3";
-        test_inputs[1] =  "**2 Global Warming 12 4 5 23 18 13 4 *** 2 RFRWYQ 5 8 17 3 4 9*31427781OAOSRSDKYPWIKSRO";
-        test_inputs[2] =  "**ACDUJF 1 4 6 12***MNKLHY 1 2 3 4 5 6 7 8 9*M FGCV";
-        test_inputs[3] =  "** KMLN 12 3 4 17 *** GHL 9 9 8 8 7 7 6 a6 5 * P TRBKHYT";
-        test_inputs[4] =  "*B PHHW PH DIVHU WKH WRJD SDUWB";
-        test_inputs[5] =  "*2 MNKK LLSGQW";
-        test_inputs[6] =  "**GG CI MOQN 9 2 1 15 ***ST TNJVQLAIVDIG 21 20 24 21 24 9 -5 21 21";
-        test_inputs[7] =  "** XNPD 5 8 17 3 ***KL LNSHDLEWMTRW 4 9 15 15 17 6 24 0 17*D GJFZNKZQDITSJ";
-        test_inputs[8] =  "**GGMLN 12 3 4 b7 *** GHL 9 9 8 8 7 7 6  16  5 * P GRBKHYT";
-        test_inputs[9] =  "** BBLN 12 3 4 17 *** GHL 9 9 8 8 7 7 6  6  5 * CRKLMNBKHYT";
-        test_inputs[10] = "** MWUULNGXAP 12 15 7 6*** GHYTRKL MNP 1 0 0 -1 2 3 12*CDM UYKOOKPIRQQN";
-        test_inputs[11] = "*zg ZHCHUUHOPXKPYAF***GHEDQHQQ 9 11 4 5 ** ABHJUTVOP 5 -2 3 4 12 32 1 0 3";
-        test_inputs[12] = "***ABC 5 6 7 8 10 1 4 8 11*K SAAPXGOW**MKPW 10 2 12 1*J RZZOWFNV";
-        // Evan Tests
-        test_inputs[13] = "**DNE*DNE**DNE*DNE"; // Too many * - Invalid
-        test_inputs[14] = "***DNE* **DNE"; // Null part 1 - Invalid
-        test_inputs[15] = "***DNE*DNE t3w **"; // Null part 2 - Invalid
-        // Part 1 - Fence
-        test_inputs[16] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**DNE***DNE"; // Valid
-        test_inputs[17] = "*93456312ttnaAptMTSUOaodwcoIXknLypETZ**DNE***DNE"; // Invalid
-        // Part 2 - Hill
-        test_inputs[18] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15***DNE";
-        test_inputs[19] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3  p ay more money  17 17 5 21   18 21 2 2   19 0 15  ***DNE";
-        // Part 3 - Valley
-        test_inputs[20] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15***3 RRLMWBKASPDH 17 17 5 21 18 21 2 2 19 3 8";
-        test_inputs[21] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15***3 R RLMWBK ASP  DH  17 17 5 21 18   21 2 2 19 3  8 ";
-        test_inputs[22] = "***3 WKAZAPBPPPCMADD  3 2 1 20 15 4 10 22 3**3 GoodMorningJohn 3 2 1 20 15 4 10 22 3*43125678812ttnaAptMTSUOaodwcoIXknLypETZ";
-        test_inputs[23] = "**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15*** 2 RFRWYQ 5 8 17 3 4 9*31427781OAOSRSDKYPWIKSRO";
+        int max_attempts = 3;
 
         // Prompt user to enter input string until a valid string is entered or attempts run out
         while (user_input_string.empty() && attempts < max_attempts) {
-            printf("\n\nEnter your input string of three parts, or enter 'quit' to exit program:\n");
+            printf("Enter your input string of three parts, or enter 'quit' to exit program:\n");
             attempts++;
             try {
-                if (test_index < total_tests) {
-                    user_input_string = test_inputs[test_index++];
-                } else {
-                    getline(cin, user_input_string);
-                }
+                // Read in user input
+                getline(cin, user_input_string);
                 if (IS_LOGGING) {
                     printf("Entered String: %s\n", user_input_string.c_str());
                 }
@@ -218,7 +178,7 @@ void* sifter(void *) {
             if (!is_valid_user_input) {
                 // If user ran out of input attempts, notify user and exit program
                 if (attempts >= max_attempts) {
-                    printf("You've run out of the maximum allowed attempts: %d"
+                    printf("\nYou've run out of the maximum allowed attempts: %d\n"
                            "Please restart the program if you wish to try again.",
                            max_attempts);
                     pthread_exit((void *) 2); // Exit thread with unsuccessful 2 code
@@ -270,6 +230,8 @@ void* sifter(void *) {
             }
             // If decoder is successful, or the user input is invalid, continue with next iteration
             else if (decoder_retval == 0 || decoder_retval == 2) {
+                // Separate each new input with two newlines
+                printf("\n\n");
                 continue;
             }
             // If error occurred in join or in a decoder thread, exit thread and stop execution
@@ -317,22 +279,42 @@ void* decoder(void*) {
         if (decoder_thread_created[i] == 0) {
             decoder_thread_joined[i] = pthread_join(decoder_threads[i], (void **)&decoder_retvals[i]);
 
-            // Split user input sent to a part was found to be invalid
+            // Split user input sent to a part was found to be invalid output message
             if (decoder_retvals[i] == 2) {
+                printf("===============================================\n"); // Cosmetic Formatting
                 if (i == 0) {
-                    printf("Part1 of your string was found to be invalid by the Fence thread.\nDecoding stopped.\n");
+                    printf("Part1 of your string was found to be invalid by the Fence thread.\n"
+                           "Part1 Decoding stopped.\n");
+                    printf("===============================================\n"); // Cosmetic Formatting
+                    continue;
                 } else if (i == 1) {
-                    printf("Part2 of your string was found to be invalid by the Hill thread.\nDecoding stopped.\n");
+                    printf("Part2 of your string was found to be invalid by the Hill thread.\n"
+                           "Part1 Encoding stopped.\n");
+                    printf("===============================================\n"); // Cosmetic Formatting
+                    continue;
                 } else if (i == 2) {
-                    printf("Part3 of your string was found to be invalid by the Valley thread.\nDecoding stopped.\n");
+                    printf("Part3 of your string was found to be invalid by the Valley thread.\n"
+                           "Part3 Decoding stopped.\n");
+                    printf("===============================================\n"); // Cosmetic Formatting
+                    continue;
                 }
-                pthread_exit((void *) 2); // Exit thread with unsuccessful 2 code: Invalid input
             }
 
             // If something went wrong with join, or with one of the decoder threads, exit thread
-            if (decoder_thread_joined[i] != 0 || decoder_retvals[i] != 0) {
+            if (decoder_thread_joined[i] != 0 || decoder_retvals[i] == 1) {
                 pthread_exit((void *) 1); // Exit thread with unsuccessful 1 code
             }
+
+            // Otherwise print decoded results
+            printf("===============================================\n"); // Cosmetic Formatting
+            if (i == 0) {
+                printf("Part1 of your string was decoded to: %s.\n", fence_thread_result.c_str());
+            } else if (i == 1) {
+                printf("Part2 of your string was encoded to: %s.\n", hill_thread_result.c_str());
+            } else if (i == 2) {
+                printf("Part3 of your string was decoded to: %s.\n", valley_thread_result.c_str());
+            }
+            printf("===============================================\n"); // Cosmetic Formatting
         }
     }
 
@@ -681,11 +663,16 @@ void* valley(void*) {
 
         // If relatively prime, find the multiplicative inverse of (z)^-1 mod 26. Returns false if not relatively prime
         h = findModularMultiplicativeInverse(z, ALPHABET_SIZE);
-
         // If not relatively prime, K^-1 mod 26 cannot be found, so exit thread
         if (h == -1) {
             printf("Valley(): Unable to find multiplicative inverse of K matrix.\n");
             pthread_exit((void *) 2);
+        }
+
+        // Initialize temp 1x1 sub_matrix holder
+        auto ** sub_matrix = (long**)malloc(sizeof(long*)*1);
+        for (int i = 0 ; i < 1; i++) {
+            *(sub_matrix + i) = (long *) malloc(sizeof(long) * 1);
         }
 
         // Calculate K^-1 using [K^-1]sub_i,j = h(-1)^(i+j)(Dsub_j,i) mod m for i,j = 0 to token 1 (3 in this case)
@@ -699,8 +686,11 @@ void* valley(void*) {
                     h_sign = -1;
                 }
 
+                // Get the 1x1 submatrix by ignoring the opposite of the current K_inverse row and col (swap them)
+                findSubMatrix(2, col, row, K, sub_matrix);
+
                 // Calculate h(-1)^(i+j)(det(K)) mod m and save the result in K_inverse matrix
-                K_inverse[row][col] = ((h_sign * h) * n) % ALPHABET_SIZE;
+                K_inverse[row][col] = ((h_sign * h) * sub_matrix[0][0]) % ALPHABET_SIZE;
                 // If mod result is negative, add 26
                 if (K_inverse[row][col] < 0) {
                     K_inverse[row][col] += ALPHABET_SIZE;
@@ -813,6 +803,12 @@ bool hillValleyGetTokenTwo(string &part, string &calling_thread, int &current_in
 
 /* Generates matrix K given section_three of part_X for both hill and valley thread. */
 bool hillValleyGenerateMatrixK(string &section_three, string &calling_thread, int section_one_int, long** K) {
+    if (!isDigitsAndWhiteSpace(section_three)) {
+        printf("%s(): invalid section 3: Must be all digits and/or whitespace characters: %s\n",
+               calling_thread.c_str(), section_three.c_str());
+        return false; // Exit calling thread
+    }
+
     regex e("\\s+");
     regex_token_iterator<string::iterator> token_iterator(section_three.begin(), section_three.end(), e , -1);
     regex_token_iterator<string::iterator> end;
@@ -926,6 +922,25 @@ bool isValidInputString() {
 
     // If all validation tests pass, return true
     return true;
+}
+
+/* Returns true if a string only consists of whitespace, false otherwise */
+bool isOnlyWhitespace(string input_str) {
+    for (char& c : input_str) {
+        if (!isspace(c)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/* Returns true if the string only consists of digits and/or whitespaces */
+bool isDigitsAndWhiteSpace(const string &str) {
+    // Iterate through string checking boolean with built in all_of function
+    return all_of(str.begin(), str.end(), [](char i){
+        return isdigit(i) || isspace(i);
+    });// C++11
 }
 
 // ==============================
@@ -1101,30 +1116,6 @@ ulong minimum(ulong a, ulong b, ulong c) {
 /* Removes all whitespace from a pass-by-reference string */
 void removeAllWhiteSpace(string &input_str) {
     input_str = regex_replace(input_str, regex("\\s+"), "");
-}
-
-/* Removes all left (leading) whitespace */
-void removeLeadingWhitespace(string &input_str) {
-    while(!input_str.empty() && isspace(*input_str.begin()))
-        input_str.erase(input_str.begin());
-}
-
-
-/* Removes all right (trailing) whitespace */
-void removeTrailingWhitespace(string &input_str) {
-    while(!input_str.empty() && isspace(*input_str.rbegin()))
-        input_str.erase(input_str.length() - 1);
-}
-
-/* Returns true if a string only consists of whitespace, false otherwise */
-bool isOnlyWhitespace(string input_str) {
-    for (char& c : input_str) {
-        if (!isspace(c)) {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 /* Converts a character into its alphabetic position number. Where A = 0, B = 1, ... Z = 25. Case insensitive. */
