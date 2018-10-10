@@ -11,7 +11,6 @@
 
 using namespace std;
 
-
 // ==============================
 // Method Signatures
 // ==============================
@@ -48,9 +47,6 @@ long convertToAlphabetPosition(char character);
 char convertFromAlphabetPosition(long position_number);
 long findModularMultiplicativeInverse(long b, long n);
 long gcd(long a, long b);
-// Debug Methods
-void print1dMatrix(long size, long *matrix);
-void print2dMatrix(long size, long **matrix);
 
 // ==============================
 // Globals
@@ -130,7 +126,6 @@ int main() {
 
     return 0;
 }
-
 
 // ==============================
 // Thread Methods
@@ -868,12 +863,12 @@ bool hillValleyGenerateMatrixK(string &section_three, string &calling_thread, in
 // ==============================
 // Validation Methods
 // ==============================
-/* Returns true if passed in user_input_string is in three parts specified by a number of asterisk symbols (6 total)
+/* Returns true if passed in user_input_string is considered valid.
  *
  * There are three phases of validation:
- *  First Validation: There are at least one of each *, **, and *** in the user input string
+ *  First Validation: There are at least one of each *, **, and *** in the user input string (for a total of 6 *)
  *  Second Validation: There are only one of each *, **, and *** in the use input string
- *  Third Validation: Each part is non-null
+ *  Third Validation: Each part is non-null (all white spaces is considered null)
  * */
 bool isValidInputString() {
     // ------------------------
@@ -960,6 +955,7 @@ void oneByNTimesNbyNMatrix(long size, long one_by_n[], long **n_by_n, long resul
         result_matrix[i] = sum;
     }
 }
+
 /* Performs the operation matrix mod (mod_factor), where the matrix is 1xsize */
 void scalarModOnebyNMatrix(long size, long matrix[], long mod_factor) {
     for (int col = 0; col < size; col++) {
@@ -1019,7 +1015,6 @@ void findSubMatrix(long size, long row_to_ignore, long col_to_ignore, long** mat
         sub_row++;
     }
 }
-
 
 // ==============================
 // Input Part Handling Methods
@@ -1093,8 +1088,6 @@ ulong findPartLength(ulong desired_index, ulong other_index_1, ulong other_index
     return part_length;
 }
 
-
-
 // ==============================
 // Helper/Utility Methods
 // ==============================
@@ -1125,7 +1118,6 @@ long convertToAlphabetPosition(char character) {
     }
     return character - 'A';
 }
-
 
 /* Converts a character from its alphabetic position number to the character that position.
  * Where 0 = A, 1 = B, ... 25 = Z. Case insensitive. */
@@ -1162,26 +1154,3 @@ long findModularMultiplicativeInverse(long b, long n) {
 long gcd(long a, long b) {
     return b == 0 ? a : gcd(b, a % b);
 }
-
-// ==================
-// Debug Methods
-// ==================
-void print2dMatrix(long size, long **matrix) {
-    for (int i = 0; i < size; i++) {
-        for (int j = 0; j < size; j++) {
-            printf("%ld ", matrix[i][j]);
-        }
-        printf("\n");
-    }
-}
-
-void print1dMatrix(long size, long *matrix) {
-    printf("[");
-    for (int i = 0; i < size; i++) {
-        printf("%ld ", matrix[i]);
-    }
-    printf("]\n");
-}
-
-
-
