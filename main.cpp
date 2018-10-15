@@ -52,6 +52,7 @@ long gcd(long a, long b);
 // Globals
 // ==============================
 const bool IS_LOGGING = false; // Set to true to turn on console logging for debugging purposes
+const bool IS_TESTING = false; // Set to true to run through test inputs for testing purposes
 const int ALPHABET_SIZE = 26;
 string user_input_string, part_one, part_two, part_three;
 string fence_thread_result, hill_thread_result, valley_thread_result;
@@ -140,22 +141,79 @@ int main() {
  *   2 = user ran out of input attempts
  * */
 void* sifter(void *) {
+    // Array of test inputs for debugging/testing
+    int current_test = 0;
+    int total_tests = 27;
+    auto test_inputs = new string[total_tests];
+    int attempts;
+    int max_attempts = 3;
+    bool is_valid_user_input;
+
+    // If testing inputs, don't kick out program after 3 failed attempts
+    if (IS_TESTING) {
+        max_attempts = total_tests;
+    }
+
     while (true) {
         user_input_string = ""; // Reset user_input_string to an empty string (for multiple runs of program)
         // ------------------------------
         // Get a Valid Input String From User
         // ------------------------------
-        bool is_valid_user_input;
-        int attempts = 0;
-        int max_attempts = 3;
+        attempts = 0;
 
         // Prompt user to enter input string until a valid string is entered or attempts run out
         while (user_input_string.empty() && attempts < max_attempts) {
             printf("Enter your input string of three parts, or enter 'quit' to exit program:\n");
             attempts++;
+
+            // Hashemi-provided Tests
+            test_inputs[0] =  "***3 rrlmwbkaspdh 17 17 5 21 18 21 2 2 19 12 *123555eu5eotsya**3 GoodMorningJohn 3 2 1 20 15 4 10 22 3";
+            test_inputs[1] =  "**2 Global Warming 12 4 5 23 18 13 4 *** 2 RFRWYQ 5 8 17 3 4 9*31427781OAOSRSDKYPWIKSRO";
+            test_inputs[2] =  "**ACDUJF 1 4 6 12***MNKLHY 1 2 3 4 5 6 7 8 9*M FGCV";
+            test_inputs[3] =  "** KMLN 12 3 4 17 *** GHL 9 9 8 8 7 7 6 a6 5 * P TRBKHYT";
+            test_inputs[4] =  "*B PHHW PH DIVHU WKH WRJD SDUWB";
+            test_inputs[5] =  "*2 MNKK LLSGQW";
+            test_inputs[6] =  "**GG CI MOQN 9 2 1 15 ***ST TNJVQLAIVDIG 21 20 24 21 24 9 -5 21 21";
+            test_inputs[7] =  "** XNPD 5 8 17 3 ***KL LNSHDLEWMTRW 4 9 15 15 17 6 24 0 17*D GJFZNKZQDITSJ";
+            test_inputs[8] =  "**GGMLN 12 3 4 b7 *** GHL 9 9 8 8 7 7 6  16  5 * P GRBKHYT";
+            test_inputs[9] =  "** BBLN 12 3 4 17 *** GHL 9 9 8 8 7 7 6  6  5 * CRKLMNBKHYT";
+            test_inputs[10] = "** MWUULNGXAP 12 15 7 6*** GHYTRKL MNP 1 0 0 -1 2 3 12*CDM UYKOOKPIRQQN";
+            test_inputs[11] = "*zg ZHCHUUHOPXKPYAF***GHEDQHQQ 9 11 4 5 ** ABHJUTVOP 5 -2 3 4 12 32 1 0 3";
+            test_inputs[12] = "***ABC 5 6 7 8 10 1 4 8 11*K SAAPXGOW**MKPW 10 2 12 1*J RZZOWFNV";
+
+            // Custom Tests
+            // Invalid Input Tests
+            test_inputs[13] = "**DNE*DNE**DNE*DNE"; // Too many * - Invalid
+            test_inputs[14] = "***DNE* **DNE"; // Null part 1 - Invalid
+            test_inputs[15] = "***DNE*DNE t3w **"; // Null part 2 - Invalid
+
+            // Part 1 - Fence
+            test_inputs[16] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**DNE***DNE"; // Valid
+            test_inputs[17] = "*93456312ttnaAptMTSUOaodwcoIXknLypETZ**DNE***DNE"; // Invalid
+
+            // Part 2 - Hill
+            test_inputs[18] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15***DNE";
+            test_inputs[19] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3  p ay more money  17 17 5 21   18 21 2 2   19 0 15  ***DNE";
+            test_inputs[20] = "*DNE**2 poopityscoop 6 7 21 1 6 6 6 1337 999 12345678910 ***DNE";
+
+            // Part 3 - Valley
+            test_inputs[21] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15***3 RRLMWBKASPDH 17 17 5 21 18 21 2 2 19 3 8";
+            test_inputs[22] = "*43125678812ttnaAptMTSUOaodwcoIXknLypETZ**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15***3 R RLMWBK ASP  DH  17 17 5 21 18   21 2 2 19 3  8 ";
+            test_inputs[23] = "***3 WKAZAPBPPPCMADD  3 2 1 20 15 4 10 22 3**3 GoodMorningJohn 3 2 1 20 15 4 10 22 3*43125678812ttnaAptMTSUOaodwcoIXknLypETZ";
+            test_inputs[24] = "**3 paymoremoney 17 17 5 21 18 21 2 2 19 0 15*** 2 RFRWYQ 5 8 17 3 4 9*31427781OAOSRSDKYPWIKSRO";
+            test_inputs[25] = "*DNE**DNE***2 NDBHXPEGAQBH 6 7 21 1 6 6 6 1337 999 12345678910 test"; // Should not work because part3 has alphabetic characters
+            test_inputs[26] = "*DNE**2 Life Before Death The Journey Before Destination 6 7 21 1 6 6 6 1337 999 12345678910***2 AHKNMLMXETYZJTZQWBKZJBGRJNZHZLJFMUWLANWLTH 6 7 21 1 6 6 6 1337 999 12345678910"; // Should decode to poopityscoop
+
+
             try {
-                // Read in user input
-                getline(cin, user_input_string);
+                // Run through each test input before prompting for use input when IS_TESTING is set to true
+                if (IS_TESTING && current_test < total_tests) {
+                    user_input_string = test_inputs[current_test++];
+                    printf("%s\n", user_input_string.c_str());
+                } else {
+                    // Read in user input
+                    getline(cin, user_input_string);
+                }
                 if (IS_LOGGING) {
                     printf("Entered String: %s\n", user_input_string.c_str());
                 }
@@ -173,13 +231,14 @@ void* sifter(void *) {
             if (!is_valid_user_input) {
                 // If user ran out of input attempts, notify user and exit program
                 if (attempts >= max_attempts) {
-                    printf("\nYou've run out of the maximum allowed attempts: %d\n"
+                    printf("Invalid input.\n\n"
+                           "You've run out of the maximum allowed attempts: %d\n"
                            "Please restart the program if you wish to try again.",
                            max_attempts);
                     pthread_exit((void *) 2); // Exit thread with unsuccessful 2 code
                 } else {
-                    printf("Invalid input. "
-                           "Please enter a string made up of the three parts that make up the encoded message.\n");
+                    printf("Invalid input.\n"
+                           "Please enter a string made up of the three parts that make up the encoded message.\n\n");
                     user_input_string = ""; // Empty user input in preparation for next iteration
                 }
             }
@@ -279,17 +338,20 @@ void* decoder(void*) {
                 printf("===============================================\n"); // Cosmetic Formatting
                 if (i == 0) {
                     printf("Part1 of your string was found to be invalid by the Fence thread.\n"
-                           "Part1 Decoding stopped.\n");
+                           "Part1 entered: %s\n"
+                           "Part1 Decoding stopped.\n", part_one.c_str());
                     printf("===============================================\n"); // Cosmetic Formatting
                     continue;
                 } else if (i == 1) {
                     printf("Part2 of your string was found to be invalid by the Hill thread.\n"
-                           "Part1 Encoding stopped.\n");
+                           "Part2 entered: %s\n"
+                           "Part2 Encoding stopped.\n", part_two.c_str());
                     printf("===============================================\n"); // Cosmetic Formatting
                     continue;
                 } else if (i == 2) {
                     printf("Part3 of your string was found to be invalid by the Valley thread.\n"
-                           "Part3 Decoding stopped.\n");
+                           "Part3 entered: %s\n"
+                           "Part3 Decoding stopped.\n", part_three.c_str());
                     printf("===============================================\n"); // Cosmetic Formatting
                     continue;
                 }
